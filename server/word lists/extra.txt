@@ -574,7 +574,6 @@ torch
 tornado
 tower
 track
-train
 triangle
 trick
 trip
@@ -585,7 +584,6 @@ tunnel
 tutu
 tuxedo
 undertaker
-univerity
 vacuum
 valentine
 vampire
@@ -595,7 +593,6 @@ vet
 viking
 violet
 virus
-volcano
 volume
 wagon
 waitress
@@ -603,12 +600,10 @@ wake
 wall
 war
 washer
-washington
 watch
 water
 wave
 web
-wedding
 well
 werewolf
 wheel
@@ -621,10 +616,8 @@ wing
 wish
 witch
 wizard
-wonderland
 wood
 wool
 worm
 yard
-yellowstone
 zombie
