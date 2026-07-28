@@ -1,0 +1,132 @@
+Dog
+Cat
+Mouse
+Fish
+Cow
+Pig
+Sheep
+Bull
+Parrot
+Chicken
+Turkey
+Goat
+Horse
+Rabbit
+Goose
+Pony
+Hamster
+Donkey
+Guinea pig
+Duck
+Lion
+Elephant
+Giraffe
+Bear
+Gorilla
+Whale
+Rhinoceros
+Monkey
+Tiger
+Zebra
+Kangaroo
+Skunk
+Panda
+Moose
+Llama
+Walrus
+Bat
+Fox
+Hyena
+Seal
+Penguin
+Owl
+Flamingo
+Ostrich
+Hummingbird
+Woodpecker
+Crow
+Pigeon
+Kiwi
+Pelican
+Dove
+Hawk
+Eagle
+Falcon
+Vulture
+Swan
+Heron
+Kingfisher
+Stork
+Sparrow
+Great white shark
+Eel
+Stingray
+Piranha
+Catfish
+Tuna
+Salmon
+Puffer
+Cod
+Blobfish
+Mackerel
+Angler fish
+Dogfish
+Hammerhead shark
+Trout
+Krill
+Swordfish
+Haddock
+Sea bass
+Clownfish
+Snake
+Crocodile
+Turtle
+Anaconda
+Alligator
+Tortoise
+Lizard
+King cobra
+Iguana
+Komodo dragon
+Chameleon
+Dinosaur
+Gecko
+Rattlesnake
+Python
+Black mamba
+Gila monster
+Viper
+Boa constrictor
+Bearded dragon
+Frog
+Squid
+Toad
+Octopus
+Salamander
+Jellyfish
+Butterfly
+Newt
+Honey bee
+Goliath birdeater
+Starfish
+Tarantula
+Crab
+Ant
+Snail
+Lobster
+Cricket
+Grasshopper
+Praying mantis
+Scorpion
+Platypus
+Ox
+Porcupine
+Shrew
+Wombat
+Armadillo
+Cyclops
+Centaur
+Unicorn
+Dragon
+Mermaid
+Phoenix
