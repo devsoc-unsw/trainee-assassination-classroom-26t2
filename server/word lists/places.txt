@@ -1,0 +1,115 @@
+Africa
+Antarctica
+Asia
+Europe
+North America
+Oceania/Australia
+South America
+Antarctic Ocean
+Arctic Ocean
+Indian Ocean
+North Atlantic Ocean
+South Atlantic Ocean
+North Pacific Ocean
+South Pacific Ocean
+Irish Sea
+Red Sea
+Black Sea
+Caribbean Sea
+Persian Gulf
+Baltic Sea
+Ireland
+Azerbaijan
+New Zealand
+Japan
+Dominican Republic
+United States of America
+Kyrgyzstan
+Spain
+Lesotho
+Italy
+Federated States of Micronesia
+United Kingdom
+Mozambique
+Belgium
+Papua New Guinea
+China
+Malta
+Russia
+Liechtenstein
+Germany
+Sydney
+Istanbul
+Nice
+Rio de Janeiro
+Marrakesh
+Auckland
+Geneva
+Timbuktu
+Vancouver
+São Paulo
+Johannesburg
+Toronto
+St Petersburg
+Casablanca
+Mumbai
+Dubai
+Barcelona
+Zürich
+Shanghai
+Great Pyramid of Giza
+Hanging Gardens of Babylon
+Colossus of Rhodes
+Statue of Zeus at Olympia
+Temple of Artemis at Olympia
+The Colosseum in Rome
+Christ the Redeemer Statue
+The Taj Mahal
+Machu Picchu
+The Great Wall of China
+Petra
+Eiffel Tower
+Statue of Liberty
+Grand Canyon
+Niagara Falls
+The Louvre
+London
+Kabul
+Luxembourg
+Beirut
+Paris
+Port-au-Prince
+Dublin
+New Delhi
+Rome
+Montevideo
+Vatican City
+Damascus
+Brussels
+Santiago
+Beijing
+Copenhagen
+Tokyo
+Prague
+Yamoussoukro
+Ottawa
+Cinema
+Restaurant
+School
+Park
+Library
+Stadium
+Grocery store
+Beach
+Pub
+Nightclub
+Bowling alley
+University
+Office
+Golf course
+Concert
+Zoo
+Circus
+Theatre
+Farm
+Church
