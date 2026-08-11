@@ -1,16 +1,28 @@
 import { createServer } from "http";
-import { Server } from "socket.io";
-import { SERVER_EVENTS } from "../shared/events";
+import { Server, type DefaultEventsMap } from "socket.io";
+import { CLIENT_EVENTS, SERVER_EVENTS } from "../shared/events";
 import type {
   ClientToServerEvents,
   ServerToClientEvents,
 } from "../shared/events";
+import type { PlayerId, RoomCode } from "../shared/types";
+import { createRoom, toPublicRoom } from "./rooms";
+
+interface SocketData {
+  playerId?: PlayerId;
+  roomCode?: RoomCode;
+}
 
 const port = parseInt(process.env.SOCKET_PORT || "3001", 10);
 
 const httpServer = createServer();
 
-const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
+const io = new Server<
+  ClientToServerEvents,
+  ServerToClientEvents,
+  DefaultEventsMap,
+  SocketData
+>(httpServer, {
   cors: {
     origin: "http://localhost:3000",
   },
@@ -23,6 +35,16 @@ io.on("connection", (socket) => {
 
   socket.emit(SERVER_EVENTS.CONNECTED, { socketId: socket.id });
 
+  socket.on(CLIENT_EVENTS.CREATE_ROOM, (payload, ack) => {
+    const room = createRoom(payload.playerId, payload.nickname);
+
+    socket.data.playerId = payload.playerId;
+    socket.data.roomCode = room.code;
+    socket.join(room.code);
+
+    ack({ ok: true, data: { code: room.code } });
+    io.to(room.code).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
+  });
   socket.on("disconnect", () => {
     console.log(`client disconnected: ${socket.id}`);
   });
