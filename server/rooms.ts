@@ -1,4 +1,4 @@
-import type { Room, RoomCode } from "@/shared/types";
+import type { GameState, Room, RoomCode } from "@/shared/types";
 
 const CODE_LENGTH = 6;
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -13,4 +13,23 @@ export function generateUniqueCode(): RoomCode {
     ).join("");
   } while (rooms.has(code));
   return code;
+}
+
+export function createInitialGameState(): GameState {
+  return {
+    phase: "LOBBY",
+    roundNumber: 0,
+    pass: 1,
+    turnIndex: 0,
+    turnOrder: [],
+    word: "",
+    category: "",
+    imposterId: null,
+    strokes: [],
+    votes: [],
+    accusedId: null,
+    finalGuess: null,
+    scores: { groupRoundsWon: 0, imposterRoundsWon: 0, perPlayer: {} },
+    phaseEndsAt: null,
+  };
 }
