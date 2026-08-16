@@ -1,10 +1,12 @@
-import type {
-  GameState,
-  Player,
-  PlayerId,
-  PublicRoom,
-  Room,
-  RoomCode,
+import type { Result } from "@/shared/events";
+import {
+  MAX_PLAYERS,
+  type GameState,
+  type Player,
+  type PlayerId,
+  type PublicRoom,
+  type Room,
+  type RoomCode,
 } from "@/shared/types";
 
 const PLAYER_COLOURS = [
@@ -31,6 +33,13 @@ export function generateUniqueCode(): RoomCode {
     ).join("");
   } while (rooms.has(code));
   return code;
+}
+
+// The first colour nobody in the room is using. Picking by index would hand out
+// duplicates once a player leaves and a new one takes their place.
+function nextColour(players: Player[]): string {
+  const taken = new Set(players.map((player) => player.colour));
+  return PLAYER_COLOURS.find((colour) => !taken.has(colour)) ?? PLAYER_COLOURS[0];
 }
 
 export function createInitialGameState(): GameState {
@@ -65,7 +74,7 @@ export function createRoom(hostId: PlayerId, nickname: string): Room {
   const host: Player = {
     id: hostId,
     nickname,
-    colour: PLAYER_COLOURS[0],
+    colour: nextColour([]),
     connected: true,
   };
   const room: Room = {
@@ -76,4 +85,60 @@ export function createRoom(hostId: PlayerId, nickname: string): Room {
   };
   rooms.set(code, room);
   return room;
+}
+
+export function joinRoom(
+  code: RoomCode,
+  playerId: PlayerId,
+  nickname: string,
+): Result<Room> {
+  const room = rooms.get(code);
+  if (!room) {
+    return {
+      ok: false,
+      code: "ROOM_NOT_FOUND",
+      message: `No room found with code ${code}.`,
+    };
+  }
+  if (room.state.phase !== "LOBBY") {
+    return {
+      ok: false,
+      code: "ROOM_IN_PROGRESS",
+      message: "That game has already started.",
+    };
+  }
+
+  // A player already in the room is reconnecting, not joining: no new seat, no
+  // colour, no duplicate row in the player list.
+  const existing = room.players.find((player) => player.id === playerId);
+  if (existing) {
+    existing.connected = true;
+    return { ok: true, data: room };
+  }
+
+  if (room.players.length >= MAX_PLAYERS) {
+    return {
+      ok: false,
+      code: "ROOM_FULL",
+      message: `That room is full (${MAX_PLAYERS} players maximum).`,
+    };
+  }
+  const nicknameTaken = room.players.some(
+    (player) => player.nickname.toLowerCase() === nickname.toLowerCase(),
+  );
+  if (nicknameTaken) {
+    return {
+      ok: false,
+      code: "NICKNAME_TAKEN",
+      message: `Someone in that room is already called "${nickname}".`,
+    };
+  }
+
+  room.players.push({
+    id: playerId,
+    nickname,
+    colour: nextColour(room.players),
+    connected: true,
+  });
+  return { ok: true, data: room };
 }
