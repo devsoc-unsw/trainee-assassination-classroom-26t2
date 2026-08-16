@@ -35,11 +35,11 @@ export function generateUniqueCode(): RoomCode {
   return code;
 }
 
-// The first colour nobody in the room is using. Picking by index would hand out
-// duplicates once a player leaves and a new one takes their place.
 function nextColour(players: Player[]): string {
   const taken = new Set(players.map((player) => player.colour));
-  return PLAYER_COLOURS.find((colour) => !taken.has(colour)) ?? PLAYER_COLOURS[0];
+  return (
+    PLAYER_COLOURS.find((colour) => !taken.has(colour)) ?? PLAYER_COLOURS[0]
+  );
 }
 
 export function createInitialGameState(): GameState {
@@ -108,8 +108,6 @@ export function joinRoom(
     };
   }
 
-  // A player already in the room is reconnecting, not joining: no new seat, no
-  // colour, no duplicate row in the player list.
   const existing = room.players.find((player) => player.id === playerId);
   if (existing) {
     existing.connected = true;
