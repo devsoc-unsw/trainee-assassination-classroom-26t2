@@ -35,6 +35,10 @@ export function generateUniqueCode(): RoomCode {
   return code;
 }
 
+function normaliseCode(code: RoomCode): RoomCode {
+  return code.trim().toUpperCase();
+}
+
 function nextColour(players: Player[]): string {
   const taken = new Set(players.map((player) => player.colour));
   return (
@@ -92,12 +96,13 @@ export function joinRoom(
   playerId: PlayerId,
   nickname: string,
 ): Result<Room> {
-  const room = rooms.get(code);
+  const roomCode = normaliseCode(code);
+  const room = rooms.get(roomCode);
   if (!room) {
     return {
       ok: false,
       code: "ROOM_NOT_FOUND",
-      message: `No room found with code ${code}.`,
+      message: `No room found with code ${roomCode}.`,
     };
   }
   if (room.state.phase !== "LOBBY") {
@@ -142,7 +147,8 @@ export function joinRoom(
 }
 
 export function leaveRoom(code: RoomCode, playerId: PlayerId): Room | null {
-  const room = rooms.get(code);
+  const roomCode = normaliseCode(code);
+  const room = rooms.get(roomCode);
   if (!room) {
     return null;
   }
@@ -154,7 +160,7 @@ export function leaveRoom(code: RoomCode, playerId: PlayerId): Room | null {
   room.players.splice(index, 1);
 
   if (room.players.length === 0) {
-    rooms.delete(code);
+    rooms.delete(roomCode);
     return null;
   }
 

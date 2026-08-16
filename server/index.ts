@@ -7,6 +7,7 @@ import type {
 } from "../shared/events";
 import type { PlayerId, RoomCode } from "../shared/types";
 import { createRoom, joinRoom, leaveRoom, toPublicRoom } from "./rooms";
+import { parseIdentity, parseRoomCode, safeAck } from "./validate";
 
 interface SocketData {
   playerId?: PlayerId;
@@ -35,18 +36,41 @@ io.on("connection", (socket) => {
 
   socket.emit(SERVER_EVENTS.CONNECTED, { socketId: socket.id });
 
-  socket.on(CLIENT_EVENTS.CREATE_ROOM, (payload, ack) => {
-    const room = createRoom(payload.playerId, payload.nickname);
+  socket.on(CLIENT_EVENTS.CREATE_ROOM, (payload, rawAck) => {
+    const ack = safeAck<{ code: RoomCode }>(rawAck);
 
-    socket.data.playerId = payload.playerId;
+    const identity = parseIdentity(payload);
+    if (!identity.ok) {
+      ack(identity);
+      return;
+    }
+    const { playerId, nickname } = identity.data;
+
+    const room = createRoom(playerId, nickname);
+
+    socket.data.playerId = playerId;
     socket.data.roomCode = room.code;
     socket.join(room.code);
 
     ack({ ok: true, data: { code: room.code } });
     io.to(room.code).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
   });
-  socket.on(CLIENT_EVENTS.JOIN_ROOM, (payload, ack) => {
-    const result = joinRoom(payload.code, payload.playerId, payload.nickname);
+  socket.on(CLIENT_EVENTS.JOIN_ROOM, (payload, rawAck) => {
+    const ack = safeAck<{ code: RoomCode }>(rawAck);
+
+    const identity = parseIdentity(payload);
+    if (!identity.ok) {
+      ack(identity);
+      return;
+    }
+    const requestedCode = parseRoomCode(payload);
+    if (!requestedCode.ok) {
+      ack(requestedCode);
+      return;
+    }
+    const { playerId, nickname } = identity.data;
+
+    const result = joinRoom(requestedCode.data, playerId, nickname);
     if (!result.ok) {
       ack(result);
       return;
@@ -54,7 +78,7 @@ io.on("connection", (socket) => {
 
     const room = result.data;
 
-    socket.data.playerId = payload.playerId;
+    socket.data.playerId = playerId;
     socket.data.roomCode = room.code;
     socket.join(room.code);
 
