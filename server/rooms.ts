@@ -113,8 +113,23 @@ export function joinRoom(
     };
   }
 
+  const clashesWithOther = (candidate: PlayerId | null) =>
+    room.players.some(
+      (player) =>
+        player.id !== candidate &&
+        player.nickname.toLowerCase() === nickname.toLowerCase(),
+    );
+
   const existing = room.players.find((player) => player.id === playerId);
   if (existing) {
+    if (existing.nickname !== nickname && clashesWithOther(playerId)) {
+      return {
+        ok: false,
+        code: "NICKNAME_TAKEN",
+        message: `Someone in that room is already called "${nickname}".`,
+      };
+    }
+    existing.nickname = nickname;
     existing.connected = true;
     return { ok: true, data: room };
   }
@@ -126,10 +141,7 @@ export function joinRoom(
       message: `That room is full (${MAX_PLAYERS} players maximum).`,
     };
   }
-  const nicknameTaken = room.players.some(
-    (player) => player.nickname.toLowerCase() === nickname.toLowerCase(),
-  );
-  if (nicknameTaken) {
+  if (clashesWithOther(null)) {
     return {
       ok: false,
       code: "NICKNAME_TAKEN",
