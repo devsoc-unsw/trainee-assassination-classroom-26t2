@@ -140,3 +140,27 @@ export function joinRoom(
   });
   return { ok: true, data: room };
 }
+
+export function leaveRoom(code: RoomCode, playerId: PlayerId): Room | null {
+  const room = rooms.get(code);
+  if (!room) {
+    return null;
+  }
+
+  const index = room.players.findIndex((player) => player.id === playerId);
+  if (index === -1) {
+    return null;
+  }
+  room.players.splice(index, 1);
+
+  if (room.players.length === 0) {
+    rooms.delete(code);
+    return null;
+  }
+
+  if (room.hostId === playerId) {
+    room.hostId = room.players[0].id;
+  }
+
+  return room;
+}
