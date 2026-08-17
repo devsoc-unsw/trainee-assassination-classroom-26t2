@@ -112,7 +112,7 @@ export function Lobby() {
   }
 
   return (
-    <div className="flex flex-col gap-3 w-full max-w-xs">
+    <div className="flex flex-col gap-3 w-full max-w-xs sm:max-w-sm">
       <input
         className="border rounded px-3 py-2 bg-white"
         placeholder="Nickname"
@@ -127,7 +127,7 @@ export function Lobby() {
         onChange={(event) => setRoomCode(event.target.value)}
       />
       {error && <p className="text-red-600 text-sm">{error}</p>}
-      <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row gap-2">
         <button
           type="button"
           className="flex-1 border rounded px-3 py-2 bg-white"

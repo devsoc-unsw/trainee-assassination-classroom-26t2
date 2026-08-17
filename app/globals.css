@@ -37,3 +37,17 @@ body {
 .animate-diagonal-scroll {
   animation: diagonal-scroll 40s linear infinite;
 }
+
+@keyframes pulse-scale {
+  0%,
+  100% {
+    transform: scale(var(--logo-scale, 1));
+  }
+  50% {
+    transform: scale(calc(var(--logo-scale, 1) * 1.08));
+  }
+}
+
+.animate-pulse-scale {
+  animation: pulse-scale 3s ease-in-out infinite;
+}
