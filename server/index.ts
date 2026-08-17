@@ -6,7 +6,13 @@ import type {
   ServerToClientEvents,
 } from "../shared/events";
 import type { PlayerId, RoomCode } from "../shared/types";
-import { createRoom, joinRoom, leaveRoom, toPublicRoom } from "./rooms";
+import {
+  createRoom,
+  joinRoom,
+  leaveRoom,
+  markDisconnected,
+  toPublicRoom,
+} from "./rooms";
 import { parseIdentity, parseRoomCode, safeAck } from "./validate";
 
 interface SocketData {
@@ -36,6 +42,39 @@ type GameSocket = Socket<
   SocketData
 >;
 
+// A refreshing browser disconnects and reconnects within moments. Removing
+// the player immediately would delete the room out from under a solo host
+// before the reconnect lands, so give them a window to come back first.
+const RECONNECT_GRACE_MS = 10_000;
+const pendingRemovals = new Map<string, ReturnType<typeof setTimeout>>();
+
+function pendingKey(roomCode: RoomCode, playerId: PlayerId) {
+  return `${roomCode}:${playerId}`;
+}
+
+function cancelPendingRemoval(roomCode: RoomCode, playerId: PlayerId) {
+  const key = pendingKey(roomCode, playerId);
+  const timer = pendingRemovals.get(key);
+  if (timer) {
+    clearTimeout(timer);
+    pendingRemovals.delete(key);
+  }
+}
+
+function scheduleRemoval(roomCode: RoomCode, playerId: PlayerId) {
+  const key = pendingKey(roomCode, playerId);
+  pendingRemovals.set(
+    key,
+    setTimeout(() => {
+      pendingRemovals.delete(key);
+      const room = leaveRoom(roomCode, playerId);
+      if (room) {
+        io.to(roomCode).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
+      }
+    }, RECONNECT_GRACE_MS),
+  );
+}
+
 // A socket may only ever be in one room. Anything that puts it in a new one
 // must call this first, or the old room keeps a member that never leaves.
 function departPreviousRoom(socket: GameSocket, keepCode?: RoomCode) {
@@ -44,6 +83,7 @@ function departPreviousRoom(socket: GameSocket, keepCode?: RoomCode) {
     return;
   }
 
+  cancelPendingRemoval(roomCode, playerId);
   const room = leaveRoom(roomCode, playerId);
   socket.leave(roomCode);
   socket.data.playerId = undefined;
@@ -75,6 +115,7 @@ io.on("connection", (socket) => {
     socket.data.playerId = playerId;
     socket.data.roomCode = room.code;
     socket.join(room.code);
+    cancelPendingRemoval(room.code, playerId);
 
     ack({ ok: true, data: { code: room.code } });
     io.to(room.code).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
@@ -106,6 +147,7 @@ io.on("connection", (socket) => {
     socket.data.playerId = playerId;
     socket.data.roomCode = room.code;
     socket.join(room.code);
+    cancelPendingRemoval(room.code, playerId);
 
     ack({ ok: true, data: { code: room.code } });
     io.to(room.code).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
@@ -113,7 +155,16 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     console.log(`client disconnected: ${socket.id}`);
-    departPreviousRoom(socket);
+    const { playerId, roomCode } = socket.data;
+    if (!playerId || !roomCode) {
+      return;
+    }
+
+    const room = markDisconnected(roomCode, playerId);
+    if (room) {
+      io.to(roomCode).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
+    }
+    scheduleRemoval(roomCode, playerId);
   });
 });
 
