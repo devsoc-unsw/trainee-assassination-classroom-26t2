@@ -112,37 +112,37 @@ export function Lobby() {
   }
 
   return (
-    <div className="flex flex-col gap-3 w-full max-w-xs sm:max-w-sm">
+    <div className="flex flex-col gap-3 w-full max-w-xs sm:max-w-sm text-black">
       <input
-        className="border rounded px-3 py-2 bg-white"
+        className="w-full bg-transparent border-0 pt-[1%] pl-[9%] pr-[26%] animate-boil frame-nickname"
         placeholder="Nickname"
         value={nickname}
         onChange={(event) => setNickname(event.target.value)}
         maxLength={16}
       />
       <input
-        className="border rounded px-3 py-2 bg-white"
-        placeholder="Room code (to join)"
+        className="w-full bg-transparent border-0 px-[22%] text-center animate-boil frame-code"
+        placeholder="Room code"
         value={roomCode}
         onChange={(event) => setRoomCode(event.target.value)}
       />
       {error && <p className="text-red-600 text-sm">{error}</p>}
-      <div className="flex flex-col sm:flex-row gap-2">
+      <div className="flex flex-col gap-2">
         <button
           type="button"
-          className="flex-1 border rounded px-3 py-2 bg-white"
+          className="w-full animate-boil frame-create-room disabled:opacity-40 cursor-pointer"
           onClick={handleCreate}
           disabled={!nickname.trim()}
         >
-          Create room
+          <span className="sr-only">Create room</span>
         </button>
         <button
           type="button"
-          className="flex-1 border rounded px-3 py-2 bg-white"
+          className="w-full animate-boil frame-join-room disabled:opacity-40 cursor-pointer"
           onClick={handleJoin}
           disabled={!nickname.trim() || !roomCode.trim()}
         >
-          Join room
+          <span className="sr-only">Join room</span>
         </button>
       </div>
     </div>
