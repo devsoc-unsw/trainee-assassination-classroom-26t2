@@ -158,6 +158,20 @@ export function joinRoom(
   return { ok: true, data: room };
 }
 
+export function markDisconnected(code: RoomCode, playerId: PlayerId): Room | null {
+  const roomCode = normaliseCode(code);
+  const room = rooms.get(roomCode);
+  if (!room) {
+    return null;
+  }
+  const player = room.players.find((candidate) => candidate.id === playerId);
+  if (!player) {
+    return null;
+  }
+  player.connected = false;
+  return room;
+}
+
 export function leaveRoom(code: RoomCode, playerId: PlayerId): Room | null {
   const roomCode = normaliseCode(code);
   const room = rooms.get(roomCode);
