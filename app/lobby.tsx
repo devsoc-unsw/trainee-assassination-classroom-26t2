@@ -114,14 +114,14 @@ export function Lobby() {
   return (
     <div className="flex flex-col gap-3 w-full max-w-xs">
       <input
-        className="border rounded px-3 py-2"
+        className="border rounded px-3 py-2 bg-white"
         placeholder="Nickname"
         value={nickname}
         onChange={(event) => setNickname(event.target.value)}
         maxLength={16}
       />
       <input
-        className="border rounded px-3 py-2"
+        className="border rounded px-3 py-2 bg-white"
         placeholder="Room code (to join)"
         value={roomCode}
         onChange={(event) => setRoomCode(event.target.value)}
@@ -130,7 +130,7 @@ export function Lobby() {
       <div className="flex gap-2">
         <button
           type="button"
-          className="flex-1 border rounded px-3 py-2"
+          className="flex-1 border rounded px-3 py-2 bg-white"
           onClick={handleCreate}
           disabled={!nickname.trim()}
         >
@@ -138,7 +138,7 @@ export function Lobby() {
         </button>
         <button
           type="button"
-          className="flex-1 border rounded px-3 py-2"
+          className="flex-1 border rounded px-3 py-2 bg-white"
           onClick={handleJoin}
           disabled={!nickname.trim() || !roomCode.trim()}
         >
