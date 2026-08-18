@@ -101,3 +101,13 @@ body {
     animation: none;
   }
 }
+
+.pencil-trigger {
+  transition: opacity 0.15s ease-out;
+}
+
+@media (hover: none) {
+  .pencil-trigger {
+    opacity: 1;
+  }
+}

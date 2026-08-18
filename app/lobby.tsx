@@ -3,6 +3,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { CLIENT_EVENTS, SERVER_EVENTS } from "@/shared/events";
 import type { PublicRoom } from "@/shared/types";
+import { LobbyRoom } from "./components/lobby/LobbyRoom";
 import {
   clearStoredSession,
   getPlayerId,
@@ -93,22 +94,7 @@ export function Lobby() {
   }
 
   if (room) {
-    return (
-      <div className="flex flex-col gap-2 text-black">
-        <p>
-          Room <span className="font-mono">{room.code}</span>
-        </p>
-        <ul>
-          {room.players.map((player) => (
-            <li key={player.id}>
-              {player.nickname}
-              {player.id === room.hostId ? " (host)" : ""}
-              {player.connected ? "" : " (offline)"}
-            </li>
-          ))}
-        </ul>
-      </div>
-    );
+    return <LobbyRoom room={room} playerId={playerId} socket={socket} />;
   }
 
   return (
