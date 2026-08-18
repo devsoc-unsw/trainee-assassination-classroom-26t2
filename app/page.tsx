@@ -18,7 +18,7 @@ export default function Home() {
           <Image
             src={drawmeleonLogo}
             alt="Drawmeleon"
-            className="w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg h-auto animate-pulse-scale [--logo-scale:1] sm:[--logo-scale:1.1] md:[--logo-scale:1.25] lg:[--logo-scale:1.4] xl:[--logo-scale:1.75]"
+            className="w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg h-auto animate-pulse-scale [--logo-scale:1.1] sm:[--logo-scale:1.25] md:[--logo-scale:1.4] lg:[--logo-scale:1.75] xl:[--logo-scale:2]"
             priority
           />
         </div>
