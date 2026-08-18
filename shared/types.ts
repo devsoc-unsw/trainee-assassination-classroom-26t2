@@ -22,6 +22,7 @@ export interface Player {
   nickname: string;
   colour: string;
   connected: boolean;
+  ready: boolean;
 }
 
 export interface Point {

@@ -17,6 +17,7 @@ export const CLIENT_EVENTS = {
   CAST_VOTE: "cast_vote",
   SUBMIT_GUESS: "submit_guess",
   READY: "ready",
+  START_GAME: "start_game",
 } as const;
 
 export const SERVER_EVENTS = {
@@ -34,7 +35,10 @@ export type ErrorCode =
   | "INVALID_NICKNAME"
   | "NOT_YOUR_TURN"
   | "WRONG_PHASE"
-  | "INVALID_PAYLOAD";
+  | "INVALID_PAYLOAD"
+  | "NOT_HOST"
+  | "NOT_ENOUGH_PLAYERS"
+  | "PLAYERS_NOT_READY";
 
 export interface SocketError {
   code: ErrorCode;
@@ -64,7 +68,8 @@ export interface ClientToServerEvents {
 
   cast_vote: (payload: { targetId: PlayerId }) => void;
   submit_guess: (payload: { text: string }) => void;
-  ready: () => void;
+  ready: (payload: { ready: boolean }) => void;
+  start_game: (ack: (result: Result<void>) => void) => void;
 }
 
 export interface ServerToClientEvents {
