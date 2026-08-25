@@ -1,4 +1,7 @@
 import type { Result } from "@/shared/events";
+import { WordSelector } from "./wordSelector";
+import type { Word } from "./words";
+const wordSelectors = new Map<RoomCode, WordSelector>();
 import {
   MAX_PLAYERS,
   type GameState,
@@ -88,6 +91,7 @@ export function createRoom(hostId: PlayerId, nickname: string): Room {
     state: createInitialGameState(),
   };
   rooms.set(code, room);
+  wordSelectors.set(code, new WordSelector(code));
   return room;
 }
 
@@ -158,6 +162,23 @@ export function joinRoom(
   return { ok: true, data: room };
 }
 
+export function startRound(code: RoomCode): Room | null {
+  const roomCode = normaliseCode(code);
+  const room = rooms.get(roomCode);
+  const selector = wordSelectors.get(roomCode);
+  if (!room || !selector) {
+    return null;
+  }
+
+  const entry: Word = selector.next();
+  room.state.phase = "ROUND_STARTING";
+  room.state.roundNumber += 1;
+  room.state.word = entry.word;
+  room.state.category = entry.category;
+
+  return room;
+}
+
 export function markDisconnected(code: RoomCode, playerId: PlayerId): Room | null {
   const roomCode = normaliseCode(code);
   const room = rooms.get(roomCode);
@@ -187,6 +208,7 @@ export function leaveRoom(code: RoomCode, playerId: PlayerId): Room | null {
 
   if (room.players.length === 0) {
     rooms.delete(roomCode);
+    wordSelectors.delete(roomCode);
     return null;
   }
 
