@@ -87,6 +87,71 @@ body {
   aspect-ratio: 1935 / 685;
 }
 
+.frame-room-code {
+  background-image: url("/images/lobby/room-code-display-box-boil.png");
+  aspect-ratio: 1200 / 409;
+}
+
+.frame-start-game {
+  background-image: url("/images/lobby/start-game-button-boil.png");
+  aspect-ratio: 1200 / 388;
+}
+
+.frame-ready {
+  background-image: url("/images/lobby/ready-cross.png");
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: center;
+  aspect-ratio: 605 / 585;
+}
+
+.frame-ready-checked {
+  background-image: url("/images/lobby/ready-tick.png");
+}
+
+.frame-pencil {
+  background-image: url("/images/lobby/pencil-boil.png");
+  aspect-ratio: 295 / 457;
+}
+
+[class*="frame-player-card-"] {
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  aspect-ratio: 1370 / 1850;
+}
+
+.frame-player-card-host {
+  background-image: url("/images/lobby/player-card-host.png");
+}
+
+.frame-player-card-pink {
+  background-image: url("/images/lobby/player-card-pink.png");
+}
+
+.frame-player-card-blue {
+  background-image: url("/images/lobby/player-card-blue.png");
+}
+
+.frame-player-card-orange {
+  background-image: url("/images/lobby/player-card-orange.png");
+}
+
+.frame-player-card-purple {
+  background-image: url("/images/lobby/player-card-purple.png");
+}
+
+.frame-player-card-green {
+  background-image: url("/images/lobby/player-card-green.png");
+}
+
+.frame-player-card-mint {
+  background-image: url("/images/lobby/player-card-mint.png");
+}
+
+.frame-player-card-red {
+  background-image: url("/images/lobby/player-card-red.png");
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-boil {
     animation: none;
