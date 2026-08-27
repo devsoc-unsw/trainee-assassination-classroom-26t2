@@ -109,6 +109,11 @@ body {
   background-image: url("/images/lobby/ready-tick.png");
 }
 
+.frame-pencil {
+  background-image: url("/images/lobby/pencil-boil.png");
+  aspect-ratio: 295 / 457;
+}
+
 [class*="frame-player-card-"] {
   background-repeat: no-repeat;
   background-size: 100% 100%;

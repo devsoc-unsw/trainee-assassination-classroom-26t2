@@ -29,7 +29,7 @@ function AvatarSlot({
   size?: "sm" | "md" | "lg";
 }) {
   return (
-    <div className="relative">
+    <div className="relative flex h-full w-full items-center justify-center">
       <AvatarBlob
         colour={player.colour}
         initial={player.nickname.charAt(0).toUpperCase() || "?"}
@@ -40,21 +40,12 @@ function AvatarSlot({
           type="button"
           onClick={onCustomize}
           aria-label="Customize your avatar"
-          className="pencil-trigger absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border border-black/20 bg-white text-black opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+          className="pencil-trigger absolute bottom-0 right-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
         >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-3.5 w-3.5"
+          <span
+            className="block h-8 w-auto shrink-0 animate-boil frame-pencil"
             aria-hidden
-          >
-            <path d="M12 20h9" />
-            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
-          </svg>
+          />
         </button>
       )}
     </div>
