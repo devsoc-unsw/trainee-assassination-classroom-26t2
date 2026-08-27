@@ -1,6 +1,7 @@
 import type { Result } from "@/shared/events";
 import {
   MAX_PLAYERS,
+  MIN_PLAYERS,
   type GameState,
   type Player,
   type PlayerId,
@@ -80,6 +81,7 @@ export function createRoom(hostId: PlayerId, nickname: string): Room {
     nickname,
     colour: nextColour([]),
     connected: true,
+    ready: false,
   };
   const room: Room = {
     code,
@@ -154,8 +156,85 @@ export function joinRoom(
     nickname,
     colour: nextColour(room.players),
     connected: true,
+    ready: false,
   });
   return { ok: true, data: room };
+}
+
+export function setReady(
+  code: RoomCode,
+  playerId: PlayerId,
+  ready: boolean,
+): Room | null {
+  const roomCode = normaliseCode(code);
+  const room = rooms.get(roomCode);
+  if (!room) {
+    return null;
+  }
+  const player = room.players.find((candidate) => candidate.id === playerId);
+  if (!player) {
+    return null;
+  }
+  player.ready = ready;
+  return room;
+}
+
+export function canStartGame(
+  code: RoomCode,
+  requesterId: PlayerId,
+): Result<void> {
+  const roomCode = normaliseCode(code);
+  const room = rooms.get(roomCode);
+  if (!room) {
+    return {
+      ok: false,
+      code: "ROOM_NOT_FOUND",
+      message: `No room found with code ${roomCode}.`,
+    };
+  }
+  if (room.hostId !== requesterId) {
+    return {
+      ok: false,
+      code: "NOT_HOST",
+      message: "Only the host can start the game.",
+    };
+  }
+  if (room.players.length < MIN_PLAYERS) {
+    return {
+      ok: false,
+      code: "NOT_ENOUGH_PLAYERS",
+      message: `Need at least ${MIN_PLAYERS} players to start.`,
+    };
+  }
+  if (room.players.some((player) => !player.connected || !player.ready)) {
+    return {
+      ok: false,
+      code: "PLAYERS_NOT_READY",
+      message: "Everyone must be connected and ready.",
+    };
+  }
+  if (room.state.phase !== "LOBBY") {
+    return {
+      ok: false,
+      code: "WRONG_PHASE",
+      message: "That game has already started.",
+    };
+  }
+  return { ok: true, data: undefined };
+}
+
+export function markDisconnected(code: RoomCode, playerId: PlayerId): Room | null {
+  const roomCode = normaliseCode(code);
+  const room = rooms.get(roomCode);
+  if (!room) {
+    return null;
+  }
+  const player = room.players.find((candidate) => candidate.id === playerId);
+  if (!player) {
+    return null;
+  }
+  player.connected = false;
+  return room;
 }
 
 export function leaveRoom(code: RoomCode, playerId: PlayerId): Room | null {

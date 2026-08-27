@@ -1,11 +1,19 @@
 import type { Result } from "@/shared/events";
 import type { PlayerId, RoomCode } from "@/shared/types";
 
-const NICKNAME_MAX_LENGTH = 20;
+const NICKNAME_MAX_LENGTH = 16;
+const CONTROL_CHARS = /[\x00-\x1f\x7f]/g;
 
 export interface Identity {
   playerId: PlayerId;
   nickname: string;
+}
+
+function sanitiseNickname(raw: string): string {
+  return raw
+    .replace(CONTROL_CHARS, "")
+    .trim()
+    .slice(0, NICKNAME_MAX_LENGTH);
 }
 
 function fields(payload: unknown): Record<string, unknown> | null {
@@ -40,8 +48,8 @@ export function parseIdentity(payload: unknown): Result<Identity> {
     };
   }
 
-  const trimmed = nickname.trim();
-  if (trimmed.length === 0 || trimmed.length > NICKNAME_MAX_LENGTH) {
+  const sanitised = sanitiseNickname(nickname);
+  if (sanitised.length === 0) {
     return {
       ok: false,
       code: "INVALID_NICKNAME",
@@ -49,7 +57,7 @@ export function parseIdentity(payload: unknown): Result<Identity> {
     };
   }
 
-  return { ok: true, data: { playerId, nickname: trimmed } };
+  return { ok: true, data: { playerId, nickname: sanitised } };
 }
 
 export function parseRoomCode(payload: unknown): Result<RoomCode> {
