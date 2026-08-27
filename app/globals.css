@@ -87,6 +87,11 @@ body {
   aspect-ratio: 1935 / 685;
 }
 
+.frame-room-code {
+  background-image: url("/images/lobby/room-code-display-box-boil.png");
+  aspect-ratio: 1200 / 409;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-boil {
     animation: none;
