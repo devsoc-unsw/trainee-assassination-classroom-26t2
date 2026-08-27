@@ -97,6 +97,18 @@ body {
   aspect-ratio: 1200 / 388;
 }
 
+.frame-ready {
+  background-image: url("/images/lobby/ready-cross.png");
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: center;
+  aspect-ratio: 605 / 585;
+}
+
+.frame-ready-checked {
+  background-image: url("/images/lobby/ready-tick.png");
+}
+
 [class*="frame-player-card-"] {
   background-repeat: no-repeat;
   background-size: 100% 100%;

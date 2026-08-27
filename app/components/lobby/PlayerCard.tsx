@@ -70,7 +70,7 @@ function StatusSlot({
     <>
       <div className="flex items-center gap-1.5 text-xs text-black/60">
         <span
-          className={`connection-dot h-2 w-2 shrink-0 rounded-full ${
+          className={`connection-dot h-2 w-2 shrink-0 rounded-full border border-black ${
             player.connected ? "bg-green-500" : "bg-black/30"
           }`}
           aria-hidden
@@ -79,24 +79,23 @@ function StatusSlot({
       </div>
 
       {isSelf ? (
-        <label className="ready-stamp flex cursor-pointer items-center gap-1.5 text-xs font-medium text-black">
-          <input
-            type="checkbox"
-            checked={player.ready}
-            onChange={(event) => onToggleReady?.(event.target.checked)}
-            className="h-3.5 w-3.5"
-          />
-          Ready
-        </label>
-      ) : (
-        <span
-          className={`ready-stamp rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
-            player.ready
-              ? "bg-green-100 text-green-800"
-              : "bg-black/5 text-black/50"
-          }`}
+        <button
+          type="button"
+          onClick={() => onToggleReady?.(!player.ready)}
+          aria-pressed={player.ready}
+          className="ready-stamp flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs font-medium text-black"
         >
+          <span
+            className={`w-7 shrink-0 frame-ready ${
+              player.ready ? "frame-ready-checked" : ""
+            }`}
+            aria-hidden
+          />
           {player.ready ? "Ready" : "Not ready"}
+        </button>
+      ) : (
+        <span className="ready-stamp rounded-full bg-black/5 px-2 py-0.5 text-[10px] font-semibold uppercase text-black/50">
+          {player.ready ? "Ready!" : "Not ready..."}
         </span>
       )}
     </>
