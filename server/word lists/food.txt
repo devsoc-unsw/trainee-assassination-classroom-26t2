@@ -16,7 +16,7 @@ cereal
 cheeseburger
 cherry
 chicken
-chili
+chilli
 chocolate
 cinnamon
 coconut
