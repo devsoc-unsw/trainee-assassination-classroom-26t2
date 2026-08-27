@@ -39,17 +39,23 @@ export function LobbyRoom({ room, playerId, socket }: LobbyRoomProps) {
     <div className="lobby-room flex w-full flex-col items-center gap-8 text-black">
       <div className="flex flex-col items-center gap-2">
         <RoomCodeBadge code={room.code} />
-        <PlayerTally count={room.players.length} min={MIN_PLAYERS} max={MAX_PLAYERS} />
+        <PlayerTally
+          count={room.players.length}
+          min={MIN_PLAYERS}
+          max={MAX_PLAYERS}
+        />
       </div>
 
-      <div className="player-list grid grid-cols-2 justify-items-center gap-x-6 gap-y-10">
+      <div className="player-list grid w-full max-w-4xl grid-cols-4 justify-items-center gap-x-8 gap-y-12">
         {room.players.map((player) => (
           <PlayerCard
             key={player.id}
             player={player}
             isHost={player.id === room.hostId}
             isSelf={player.id === playerId}
-            onToggleReady={player.id === playerId ? handleToggleReady : undefined}
+            onToggleReady={
+              player.id === playerId ? handleToggleReady : undefined
+            }
             onCustomize={
               player.id === playerId ? () => setCustomizeOpen(true) : undefined
             }

@@ -116,7 +116,9 @@ export function PlayerCard({
 
   if (frameClass) {
     return (
-      <div className={`player-card ${frameClass} group relative w-64`}>
+      <div
+        className={`player-card ${frameClass} group relative w-full max-w-64`}
+      >
         <div className="absolute top-[19%] right-[20%] bottom-[54%] left-[21%] flex items-center justify-center">
           <AvatarSlot
             player={player}
@@ -142,7 +144,7 @@ export function PlayerCard({
   }
 
   return (
-    <div className="player-card group relative flex w-64 flex-col items-center gap-2 rounded-2xl border-2 border-black/10 bg-white/70 px-4 pb-3 pt-4">
+    <div className="player-card group relative flex w-full max-w-64 flex-col items-center gap-2 rounded-2xl border-2 border-black/10 bg-white/70 px-4 pb-3 pt-4">
       <AvatarSlot player={player} isSelf={isSelf} onCustomize={onCustomize} />
 
       <p className="max-w-32 truncate text-sm font-semibold text-black">
