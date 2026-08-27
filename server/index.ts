@@ -7,10 +7,12 @@ import type {
 } from "../shared/events";
 import type { PlayerId, RoomCode } from "../shared/types";
 import {
+  canStartGame,
   createRoom,
   joinRoom,
   leaveRoom,
   markDisconnected,
+  setReady,
   toPublicRoom,
 } from "./rooms";
 import { parseIdentity, parseRoomCode, safeAck } from "./validate";
@@ -151,6 +153,40 @@ io.on("connection", (socket) => {
 
     ack({ ok: true, data: { code: room.code } });
     io.to(room.code).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
+  });
+
+  socket.on(CLIENT_EVENTS.READY, (payload) => {
+    const { playerId, roomCode } = socket.data;
+    if (!playerId || !roomCode) {
+      return;
+    }
+
+    const ready = typeof payload?.ready === "boolean" ? payload.ready : false;
+    const room = setReady(roomCode, playerId, ready);
+
+    if (room) {
+      io.to(roomCode).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
+    }
+  });
+
+  socket.on(CLIENT_EVENTS.START_GAME, (rawAck) => {
+    const ack = safeAck<void>(rawAck);
+    const { playerId, roomCode } = socket.data;
+    if (!playerId || !roomCode) {
+      ack({ ok: false, code: "ROOM_NOT_FOUND", message: "Not in a room." });
+      return;
+    }
+
+    const result = canStartGame(roomCode, playerId);
+    if (!result.ok) {
+      ack(result);
+      return;
+    }
+
+    // TODO(T-next): trigger round init (imposter/word assignment, turn order)
+    // and broadcast STATE_UPDATED once round-start logic exists. This handler
+    // intentionally stops at validation for T06.
+    ack({ ok: true, data: undefined });
   });
 
   socket.on("disconnect", () => {

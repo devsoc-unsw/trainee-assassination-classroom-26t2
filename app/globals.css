@@ -24,3 +24,90 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@keyframes diagonal-scroll {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: -1440px -1024px;
+  }
+}
+
+.animate-diagonal-scroll {
+  animation: diagonal-scroll 40s linear infinite;
+}
+
+@keyframes pulse-scale {
+  0%,
+  100% {
+    transform: scale(var(--logo-scale, 1));
+  }
+  50% {
+    transform: scale(calc(var(--logo-scale, 1) * 1.08));
+  }
+}
+
+.animate-pulse-scale {
+  animation: pulse-scale 3s ease-in-out infinite;
+}
+
+@keyframes boil {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 0 100%;
+  }
+}
+
+.animate-boil {
+  background-repeat: no-repeat;
+  background-size: 100% 200%;
+  animation: boil 1s steps(2, jump-none) infinite;
+}
+
+.frame-nickname {
+  background-image: url("/images/landing-page/nickname-frame-boil.png");
+  aspect-ratio: 2041 / 351;
+}
+
+.frame-code {
+  background-image: url("/images/landing-page/code-frame-boil.png");
+  aspect-ratio: 1918 / 324;
+}
+
+.frame-create-room {
+  background-image: url("/images/landing-page/create-room-button-boil.png");
+  aspect-ratio: 1795 / 648;
+}
+
+.frame-join-room {
+  background-image: url("/images/landing-page/join-room-button-boil.png");
+  aspect-ratio: 1935 / 685;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-boil {
+    animation: none;
+  }
+
+  .animate-pulse-scale {
+    animation: none;
+    transform: scale(var(--logo-scale, 1));
+  }
+
+  .animate-diagonal-scroll {
+    animation: none;
+  }
+}
+
+.pencil-trigger {
+  transition: opacity 0.15s ease-out;
+}
+
+@media (hover: none) {
+  .pencil-trigger {
+    opacity: 1;
+  }
+}
