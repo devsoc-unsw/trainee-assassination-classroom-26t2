@@ -42,7 +42,7 @@ export function LobbyRoom({ room, playerId, socket }: LobbyRoomProps) {
         <PlayerTally count={room.players.length} min={MIN_PLAYERS} max={MAX_PLAYERS} />
       </div>
 
-      <div className="player-list flex flex-wrap items-start justify-center gap-x-6 gap-y-10">
+      <div className="player-list grid grid-cols-2 justify-items-center gap-x-6 gap-y-10">
         {room.players.map((player) => (
           <PlayerCard
             key={player.id}

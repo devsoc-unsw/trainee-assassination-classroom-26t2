@@ -92,6 +92,52 @@ body {
   aspect-ratio: 1200 / 409;
 }
 
+/*
+ * Player card art (host + one per colour) shares a single template/canvas,
+ * so every card in this family is cropped to the same window and lines up
+ * on the same avatar/name-bar/status-box percentages in PlayerCard.tsx.
+ * Add a new colour's card the same way: crop to that shared window, add a
+ * `.frame-player-card-*` rule here, then map the colour to it in
+ * PLAYER_CARD_ART in PlayerCard.tsx.
+ */
+[class*="frame-player-card-"] {
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  aspect-ratio: 1370 / 1850;
+}
+
+.frame-player-card-host {
+  background-image: url("/images/lobby/player-card-host.png");
+}
+
+.frame-player-card-pink {
+  background-image: url("/images/lobby/player-card-pink.png");
+}
+
+.frame-player-card-blue {
+  background-image: url("/images/lobby/player-card-blue.png");
+}
+
+.frame-player-card-orange {
+  background-image: url("/images/lobby/player-card-orange.png");
+}
+
+.frame-player-card-purple {
+  background-image: url("/images/lobby/player-card-purple.png");
+}
+
+.frame-player-card-green {
+  background-image: url("/images/lobby/player-card-green.png");
+}
+
+.frame-player-card-mint {
+  background-image: url("/images/lobby/player-card-mint.png");
+}
+
+.frame-player-card-red {
+  background-image: url("/images/lobby/player-card-red.png");
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-boil {
     animation: none;
