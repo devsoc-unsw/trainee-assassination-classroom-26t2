@@ -160,8 +160,10 @@ io.on("connection", (socket) => {
     if (!playerId || !roomCode) {
       return;
     }
+
     const ready = typeof payload?.ready === "boolean" ? payload.ready : false;
     const room = setReady(roomCode, playerId, ready);
+
     if (room) {
       io.to(roomCode).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
     }
