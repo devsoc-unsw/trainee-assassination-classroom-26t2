@@ -125,14 +125,14 @@ export function Lobby() {
         <div className="flex flex-col gap-10 w-full max-w-xs sm:max-w-sm text-black">
           <div className="flex flex-col gap-2">
             <input
-              className="w-full bg-transparent border-0 pt-[1%] pl-[9%] pr-[26%] animate-boil frame-nickname"
+              className="w-full bg-transparent border-0 pt-[1%] pl-[9%] pr-[26%] animate-boil frame-nickname active:outline-none focus:outline-none"
               placeholder="Nickname"
               value={nickname}
               onChange={(event) => setNickname(event.target.value)}
               maxLength={16}
             />
             <input
-              className="w-full bg-transparent border-0 px-[22%] text-center animate-boil frame-code"
+              className="w-full bg-transparent border-0 px-[22%] text-center animate-boil frame-code active:outline-none focus:outline-none"
               placeholder="Room code"
               value={roomCode}
               onChange={(event) => setRoomCode(event.target.value)}
