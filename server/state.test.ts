@@ -190,6 +190,26 @@ describe("invalid transitions", () => {
     const result = toRoundRevealFromVoting(state, state.imposterId!);
     expect(result.ok).toBe(false);
   });
+
+  it("toFinalGuess reports the phase as the cause when phase and accusation are both wrong", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const state = stateAt("DRAWING");
+    const result = toFinalGuess(state, PLAYERS[2]); // not the imposter either
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.message).toContain("DRAWING");
+    expect(warn.mock.calls[0][0]).toContain("to_final_guess");
+    expect(warn.mock.calls[0][0]).toContain("DRAWING");
+    warn.mockRestore();
+  });
+
+  it("toRoundRevealFromVoting reports the phase as the cause when phase and accusation are both wrong", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const state = stateAt("DRAWING");
+    const result = toRoundRevealFromVoting(state, state.imposterId);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.message).toContain("DRAWING");
+    warn.mockRestore();
+  });
 });
 
 describe("resolveRoundWinner", () => {

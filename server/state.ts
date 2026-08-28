@@ -120,6 +120,10 @@ export function toFinalGuess(
   state: GameState,
   accusedId: PlayerId,
 ): Result<GameState> {
+  const guard = assertPhase(state, ["VOTING"], "to_final_guess");
+  if (!guard.ok) {
+    return guard;
+  }
   if (accusedId !== state.imposterId) {
     console.warn(
       `[state] rejected "to_final_guess": accused ${accusedId} is not the imposter`,
@@ -130,13 +134,7 @@ export function toFinalGuess(
       message: "Final guess only follows accusing the actual imposter.",
     };
   }
-  return commitTransition(
-    state,
-    ["VOTING"],
-    "FINAL_GUESS",
-    "to_final_guess",
-    (s) => ({ ...s, accusedId }),
-  );
+  return { ok: true, data: { ...state, accusedId, phase: "FINAL_GUESS" } };
 }
 
 // VOTING -> ROUND_REVEAL
@@ -144,6 +142,10 @@ export function toRoundRevealFromVoting(
   state: GameState,
   accusedId: PlayerId | null,
 ): Result<GameState> {
+  const guard = assertPhase(state, ["VOTING"], "to_round_reveal_from_voting");
+  if (!guard.ok) {
+    return guard;
+  }
   if (accusedId !== null && accusedId === state.imposterId) {
     console.warn(
       `[state] rejected "to_round_reveal_from_voting": accused ${accusedId} is the imposter, final guess must run first`,
@@ -154,13 +156,7 @@ export function toRoundRevealFromVoting(
       message: "The imposter was caught; final guess runs before reveal.",
     };
   }
-  return commitTransition(
-    state,
-    ["VOTING"],
-    "ROUND_REVEAL",
-    "to_round_reveal_from_voting",
-    (s) => ({ ...s, accusedId }),
-  );
+  return { ok: true, data: { ...state, accusedId, phase: "ROUND_REVEAL" } };
 }
 
 // FINAL_GUESS -> ROUND_REVEAL
