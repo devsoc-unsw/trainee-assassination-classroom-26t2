@@ -10,7 +10,6 @@ import {
   type RoomCode,
 } from "@/shared/types";
 
-// Handed out to non-host players, round-robin, as they join.
 const PLAYER_COLOURS = [
   "#772322", // red (player-card-red.png)
   "#5e875b", // green (player-card-green.png)
@@ -21,10 +20,6 @@ const PLAYER_COLOURS = [
   "#b16576", // pink (player-card-pink.png)
 ];
 
-// Reserved for whoever is currently host — never handed out to a regular
-// joiner. Assigned on room creation and reassigned whenever host status
-// moves to a new player (see leaveRoom), so the host's avatar dot always
-// matches the gold player-card-host.png art.
 const HOST_COLOUR = "#9a6324";
 
 const CODE_LENGTH = 6;
@@ -70,6 +65,10 @@ export function createInitialGameState(): GameState {
     scores: { groupRoundsWon: 0, imposterRoundsWon: 0, perPlayer: {} },
     phaseEndsAt: null,
   };
+}
+
+export function getRoom(code: RoomCode): Room | null {
+  return rooms.get(normaliseCode(code)) ?? null;
 }
 
 export function toPublicRoom(room: Room): PublicRoom {

@@ -5,16 +5,18 @@ import type {
   ClientToServerEvents,
   ServerToClientEvents,
 } from "../shared/events";
-import type { PlayerId, RoomCode } from "../shared/types";
+import type { PlayerId, Room, RoomCode } from "../shared/types";
 import {
   canStartGame,
   createRoom,
+  getRoom,
   joinRoom,
   leaveRoom,
   markDisconnected,
   setReady,
   toPublicRoom,
 } from "./rooms";
+import { beginDrawing, serialiseStateFor, startRound } from "./state";
 import { parseIdentity, parseRoomCode, safeAck } from "./validate";
 
 interface SocketData {
@@ -94,6 +96,32 @@ function departPreviousRoom(socket: GameSocket, keepCode?: RoomCode) {
   if (room) {
     io.to(roomCode).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
   }
+}
+
+function broadcastState(roomCode: RoomCode, room: Room) {
+  const socketIds = io.sockets.adapter.rooms.get(roomCode);
+  if (!socketIds) {
+    return;
+  }
+  for (const socketId of socketIds) {
+    const memberSocket = io.sockets.sockets.get(socketId);
+    const playerId = memberSocket?.data.playerId;
+    if (memberSocket && playerId) {
+      memberSocket.emit(
+        SERVER_EVENTS.STATE_UPDATED,
+        serialiseStateFor(playerId, room),
+      );
+    }
+  }
+}
+
+function shuffled<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
 }
 
 io.on("connection", (socket) => {
@@ -183,10 +211,38 @@ io.on("connection", (socket) => {
       return;
     }
 
-    // TODO(T-next): trigger round init (imposter/word assignment, turn order)
-    // and broadcast STATE_UPDATED once round-start logic exists. This handler
-    // intentionally stops at validation for T06.
+    const room = getRoom(roomCode);
+    if (!room) {
+      ack({ ok: false, code: "ROOM_NOT_FOUND", message: "Not in a room." });
+      return;
+    }
+
+    const turnOrder = shuffled(room.players.map((player) => player.id));
+    const imposterId = turnOrder[Math.floor(Math.random() * turnOrder.length)];
+
+    const started = startRound(room.state, {
+      roundNumber: room.state.roundNumber + 1,
+      turnOrder,
+      imposterId,
+      word: "placeholder",
+      category: "a placeholder",
+    });
+    if (!started.ok) {
+      console.warn(
+        `[room ${roomCode}] start_game rejected: ${started.message}`,
+      );
+      ack({ ok: false, code: started.code, message: started.message });
+      return;
+    }
+    room.state = started.data;
+
+    const drawing = beginDrawing(room.state);
+    if (drawing.ok) {
+      room.state = drawing.data;
+    }
+
     ack({ ok: true, data: undefined });
+    broadcastState(roomCode, room);
   });
 
   socket.on("disconnect", () => {
