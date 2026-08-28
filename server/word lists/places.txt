@@ -1,0 +1,140 @@
+## Everything is lowercase (checking should be case insensitive)
+
+africa
+alaska
+alps
+amazon
+america
+antarctica
+asia
+atlantis
+attic
+auckland
+australia
+azerbaijan
+aztec
+baltic sea
+bank
+bar
+barbecue
+bath
+battleship
+bay
+beach
+bedroom
+beijing
+belgium
+bench
+berlin
+bermuda
+big bang
+big ben
+bowling alley
+brazil
+bridge
+camp
+canada
+car
+casino
+castle
+cave
+cell
+china
+church
+cinema
+circus
+cliff
+club
+coast
+concert
+dentist
+doctor
+dubai
+earth
+eden
+egypt
+eiffel tower
+england
+farm
+forest
+france
+garden
+geneva
+germany
+glacier
+golf course
+grand canyon
+great pyramid of giza
+greece
+grocery store
+hawaii
+himalayas
+hollywood
+hospital
+hotel
+house
+iceland
+igloo
+india
+ireland
+istanbul
+italy
+jail
+japan
+jet
+lab
+laundry
+library
+london
+machu picchu
+mexico
+mill
+mine
+moon
+moscow
+new york
+new zealand
+niagara Falls
+nightclub
+notre dame
+office
+olympus
+ottawa
+outback
+pacific
+parade
+paris
+park
+petra
+plane
+pub
+red sea
+restaurant
+rio de janeiro
+river
+rome
+russia
+sahara
+saturn
+school
+shed
+skyscraper
+space
+spain
+stadium
+statue of liberty
+sydney
+theatre
+the great wall of china
+the louvre
+the taj mahal
+train
+uluru
+univerity
+vatican city
+volcano
+washington
+wedding
+wonderland
+yellowstone
+zoo

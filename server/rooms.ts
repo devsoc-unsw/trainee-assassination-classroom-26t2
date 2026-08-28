@@ -10,16 +10,22 @@ import {
   type RoomCode,
 } from "@/shared/types";
 
+// Handed out to non-host players, round-robin, as they join.
 const PLAYER_COLOURS = [
-  "#e6194b", // red
-  "#3cb44b", // green
-  "#4363d8", // blue
-  "#f58231", // orange
-  "#911eb4", // purple
-  "#42d4f4", // cyan
-  "#f032e6", // magenta
-  "#9a6324", // brown
+  "#772322", // red (player-card-red.png)
+  "#5e875b", // green (player-card-green.png)
+  "#5b92b9", // blue (player-card-blue.png)
+  "#df6c4c", // orange (player-card-orange.png)
+  "#9a78b8", // purple (player-card-purple.png)
+  "#55d299", // mint (player-card-mint.png)
+  "#b16576", // pink (player-card-pink.png)
 ];
+
+// Reserved for whoever is currently host — never handed out to a regular
+// joiner. Assigned on room creation and reassigned whenever host status
+// moves to a new player (see leaveRoom), so the host's avatar dot always
+// matches the gold player-card-host.png art.
+const HOST_COLOUR = "#9a6324";
 
 const CODE_LENGTH = 6;
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -79,7 +85,7 @@ export function createRoom(hostId: PlayerId, nickname: string): Room {
   const host: Player = {
     id: hostId,
     nickname,
-    colour: nextColour([]),
+    colour: HOST_COLOUR,
     connected: true,
     ready: false,
   };
@@ -223,7 +229,10 @@ export function canStartGame(
   return { ok: true, data: undefined };
 }
 
-export function markDisconnected(code: RoomCode, playerId: PlayerId): Room | null {
+export function markDisconnected(
+  code: RoomCode,
+  playerId: PlayerId,
+): Room | null {
   const roomCode = normaliseCode(code);
   const room = rooms.get(roomCode);
   if (!room) {
@@ -256,7 +265,9 @@ export function leaveRoom(code: RoomCode, playerId: PlayerId): Room | null {
   }
 
   if (room.hostId === playerId) {
-    room.hostId = room.players[0].id;
+    const newHost = room.players[0];
+    room.hostId = newHost.id;
+    newHost.colour = HOST_COLOUR;
   }
 
   return room;
