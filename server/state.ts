@@ -68,6 +68,51 @@ export interface RoundStartParams {
   category: string;
 }
 
+export function advanceTurn(state: GameState): Result<GameState> {
+  const guard = assertPhase(state, ["DRAWING"], "advance_turn");
+  if (!guard.ok) {
+    return guard;
+  }
+
+  const nextIndex = state.turnIndex + 1;
+  if (nextIndex < state.turnOrder.length) {
+    return { ok: true, data: { ...state, turnIndex: nextIndex } };
+  }
+
+  if (state.pass >= 2) {
+    return endDrawing(state);
+  }
+
+  return { ok: true, data: { ...state, turnIndex: 0, pass: 2 } };
+}
+
+export interface RemovePlayerResult {
+  state: GameState;
+  wasCurrent: boolean;
+}
+
+export function removePlayerFromTurnOrder(
+  state: GameState,
+  playerId: PlayerId,
+): RemovePlayerResult {
+  const wasCurrent = state.turnOrder[state.turnIndex] === playerId;
+  const removedIndex = state.turnOrder.indexOf(playerId);
+  const removedBeforeCurrent = removedIndex !== -1 && removedIndex < state.turnIndex;
+  const newOrder = state.turnOrder.filter((id) => id !== playerId);
+
+  let newIndex = state.turnIndex;
+  if (removedBeforeCurrent) {
+    newIndex -= 1;
+  }
+  if (newIndex < 0 || newIndex >= newOrder.length) {
+    newIndex = 0;
+  }
+
+  return {
+    state: { ...state, turnOrder: newOrder, turnIndex: newIndex }, wasCurrent};
+}
+
+
 // LOBBY -> ROUND_STARTING (first round) or SCORING -> ROUND_STARTING (every
 // round after).
 export function startRound(

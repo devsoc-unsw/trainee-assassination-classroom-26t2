@@ -16,7 +16,7 @@ import {
   setReady,
   toPublicRoom,
 } from "./rooms";
-import { beginDrawing, serialiseStateFor, startRound } from "./state";
+import { beginDrawing, serialiseStateFor, startRound, advanceTurn, removePlayerFromTurnOrder } from "./state";
 import { parseIdentity, parseRoomCode, safeAck } from "./validate";
 
 interface SocketData {
@@ -51,6 +51,42 @@ type GameSocket = Socket<
 // before the reconnect lands, so give them a window to come back first.
 const RECONNECT_GRACE_MS = 10_000;
 const pendingRemovals = new Map<string, ReturnType<typeof setTimeout>>();
+const TURN_DURATION_MS = 30_000; // 30 seconds per turn — change if you want a different length
+const turnTimers = new Map<RoomCode, ReturnType<typeof setTimeout>>();
+
+function clearTurnTimer(roomCode: RoomCode) {
+  const timer = turnTimers.get(roomCode);
+  if (timer) {
+    clearTimeout(timer);
+    turnTimers.delete(roomCode);
+  }
+}
+
+function armTurnTimer(roomCode: RoomCode, room: Room) {
+  clearTurnTimer(roomCode);
+  if (room.state.phase !== "DRAWING") {
+    return;
+  }
+
+  room.state = { ...room.state, phaseEndsAt: Date.now() + TURN_DURATION_MS };
+
+  const timer = setTimeout(() => {
+    turnTimers.delete(roomCode);
+    const current = getRoom(roomCode);
+    if (!current || current.state.phase !== "DRAWING") {
+      return;
+    }
+    const advanced = advanceTurn(current.state);
+    if (!advanced.ok) {
+      return;
+    }
+    current.state = advanced.data;
+    broadcastState(roomCode, current);
+    armTurnTimer(roomCode, current);
+  }, TURN_DURATION_MS);
+
+  turnTimers.set(roomCode, timer);
+}
 
 function pendingKey(roomCode: RoomCode, playerId: PlayerId) {
   return `${roomCode}:${playerId}`;
@@ -72,9 +108,22 @@ function scheduleRemoval(roomCode: RoomCode, playerId: PlayerId) {
     setTimeout(() => {
       pendingRemovals.delete(key);
       const room = leaveRoom(roomCode, playerId);
-      if (room) {
-        io.to(roomCode).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
+      if (!room) {
+        return;
       }
+
+      const { state, wasCurrent } = removePlayerFromTurnOrder(room.state, playerId);
+      room.state = state;
+
+      if (wasCurrent && room.state.phase === "DRAWING") {
+        const advanced = advanceTurn(room.state);
+        if (advanced.ok) {
+          room.state = advanced.data;
+        }
+      }
+
+      io.to(roomCode).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
+      broadcastState(roomCode, room);
     }, RECONNECT_GRACE_MS),
   );
 }
@@ -260,8 +309,45 @@ io.on("connection", (socket) => {
     const room = markDisconnected(roomCode, playerId);
     if (room) {
       io.to(roomCode).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
+
+      if (
+        room.state.phase === "DRAWING" &&
+        room.state.turnOrder[room.state.turnIndex] === playerId
+      ) {
+        const advanced = advanceTurn(room.state);
+        if (advanced.ok) {
+          room.state = advanced.data;
+          broadcastState(roomCode, room);
+        }
+      }
     }
     scheduleRemoval(roomCode, playerId);
+  });
+
+  socket.on(CLIENT_EVENTS.STROKE_END, (payload) => {
+    const { playerId, roomCode } = socket.data;
+    if (!playerId || !roomCode) {
+      return;
+    }
+
+    const room = getRoom(roomCode);
+    if (!room) {
+      return;
+    }
+
+    if (
+      room.state.phase !== "DRAWING" ||
+      room.state.turnOrder[room.state.turnIndex] !== playerId
+    ) {
+      return;
+    }
+
+    const advanced = advanceTurn(room.state);
+    if (!advanced.ok) {
+      return;
+    }
+    room.state = advanced.data;
+    broadcastState(roomCode, room);
   });
 });
 
