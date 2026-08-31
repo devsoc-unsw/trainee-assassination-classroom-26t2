@@ -3,10 +3,10 @@ import { Server, type DefaultEventsMap, type Socket } from "socket.io";
 import { CLIENT_EVENTS, SERVER_EVENTS } from "../shared/events";
 import type {
   ClientToServerEvents,
-  Result,
   ServerToClientEvents,
 } from "../shared/events";
-import type { GameState, PlayerId, Room, RoomCode } from "../shared/types";
+import type { PlayerId, Room, RoomCode } from "../shared/types";
+import { createPhaseLoop } from "./phase-loop";
 import {
   canStartGame,
   createRoom,
@@ -17,16 +17,8 @@ import {
   setReady,
   toPublicRoom,
 } from "./rooms";
-import {
-  beginDrawing,
-  endDrawing,
-  endRoundReveal,
-  serialiseStateFor,
-  startRound,
-  toRoundRevealFromFinalGuess,
-  toRoundRevealFromVoting,
-} from "./state";
-import { armPhaseTimer, clearRoomTimer } from "./timers";
+import { beginDrawing, serialiseStateFor, startRound } from "./state";
+import { clearRoomTimer } from "./timers";
 import { parseIdentity, parseRoomCode, safeAck } from "./validate";
 
 interface SocketData {
@@ -132,65 +124,11 @@ function broadcastState(roomCode: RoomCode, room: Room) {
   }
 }
 
-// T09: move the room into `next` and (re)arm its phase timer. Any timer already
-// running for the room is cleared first, so an immediate transition never
-// leaves an orphaned timeout behind. `phaseEndsAt` is the absolute deadline the
-// client counts down to; it is null for phases with no timer. Broadcasts the
-// new state.
-function enterPhase(room: Room, next: GameState) {
-  const endsAt = armPhaseTimer(room.code, next.phase, () =>
-    onPhaseExpired(room.code),
-  );
-  room.state = { ...next, phaseEndsAt: endsAt };
-  broadcastState(room.code, room);
-}
-
-// T09: the phase timer elapsed with no early exit. Drive the state machine
-// forward along the natural "time's up" edge for the current phase. Early exits
-// (stroke completes, everyone voted, imposter submits, all ready) are owned by
-// T08/T12/T18/T29 and call enterPhase directly, which cancels this timer.
-function onPhaseExpired(roomCode: RoomCode) {
-  const room = getRoom(roomCode);
-  if (!room) {
-    // Room was deleted between the timer firing and this callback. Nothing to
-    // do - clearRoomTimer already ran on deletion.
-    return;
-  }
-
-  const { phase } = room.state;
-  let next: Result<GameState>;
-  switch (phase) {
-    case "DRAWING":
-      // T08 will replace this with per-turn advancement: advance turnIndex,
-      // bump `pass` on wrap, and only move to VOTING after the second pass.
-      // Until T08 lands, a single 20s timer ends the drawing phase.
-      next = endDrawing(room.state);
-      break;
-    case "VOTING":
-      // T18 owns the tally. With no votes recorded yet, a timeout means no
-      // accusation, which counts as the imposter surviving.
-      next = toRoundRevealFromVoting(room.state, null);
-      break;
-    case "FINAL_GUESS":
-      // No submission: finalGuess stays null, which resolves as a wrong guess.
-      next = toRoundRevealFromFinalGuess(room.state);
-      break;
-    case "ROUND_REVEAL":
-      next = endRoundReveal(room.state);
-      break;
-    default:
-      // No other phase arms a timer.
-      return;
-  }
-
-  if (!next.ok) {
-    console.warn(
-      `[room ${roomCode}] phase timeout from ${phase} rejected: ${next.message}`,
-    );
-    return;
-  }
-  enterPhase(room, next.data);
-}
+// T09: the phase loop drives timed transitions. See server/phase-loop.ts.
+const { enterPhase } = createPhaseLoop({
+  getRoom,
+  broadcast: (room) => broadcastState(room.code, room),
+});
 
 function shuffled<T>(items: T[]): T[] {
   const copy = [...items];
