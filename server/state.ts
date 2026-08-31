@@ -1,12 +1,16 @@
 // T07: the server-authoritative game state machine.
 //
+// LOBBY → ROUND_STARTING → DRAWING → VOTING ┬→ FINAL_GUESS → ROUND_REVEAL → SCORING ┬→ GAME_OVER
+//   ↑                                       └────────────────→ ROUND_REVEAL ─┘      │
+//   └─────────────────────── (SCORING → ROUND_STARTING, next round) ─────────────-──┘
+//
 // Two jobs live here, and they turn out to be the same check:
 //   1. A transition between phases is only legal from certain source phases.
 //   2. A client event (submit a stroke, cast a vote...) is only legal during
 //      certain phases.
 // Both are answered by assertPhase. Transition functions use it to guard
-// their own mutation; event handlers in index.ts (and future tickets like
-// T12/T18/T29) use it directly to decide whether to accept an incoming event.
+// their own mutation; event handlers in index.ts use it directly to decide whether
+// to accept an incoming event.
 //
 // serialiseStateFor is the only function allowed to read imposterId, word,
 // or votes and turn them into something a specific client may see. Every
