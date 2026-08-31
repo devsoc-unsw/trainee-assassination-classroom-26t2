@@ -3,9 +3,10 @@ import { Server, type DefaultEventsMap, type Socket } from "socket.io";
 import { CLIENT_EVENTS, SERVER_EVENTS } from "../shared/events";
 import type {
   ClientToServerEvents,
+  Result,
   ServerToClientEvents,
 } from "../shared/events";
-import type { PlayerId, Room, RoomCode } from "../shared/types";
+import type { GameState, PlayerId, Room, RoomCode } from "../shared/types";
 import {
   canStartGame,
   createRoom,
@@ -16,7 +17,16 @@ import {
   setReady,
   toPublicRoom,
 } from "./rooms";
-import { beginDrawing, serialiseStateFor, startRound } from "./state";
+import {
+  beginDrawing,
+  endDrawing,
+  endRoundReveal,
+  serialiseStateFor,
+  startRound,
+  toRoundRevealFromFinalGuess,
+  toRoundRevealFromVoting,
+} from "./state";
+import { armPhaseTimer, clearRoomTimer } from "./timers";
 import { parseIdentity, parseRoomCode, safeAck } from "./validate";
 
 interface SocketData {
@@ -74,6 +84,9 @@ function scheduleRemoval(roomCode: RoomCode, playerId: PlayerId) {
       const room = leaveRoom(roomCode, playerId);
       if (room) {
         io.to(roomCode).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
+      } else if (!getRoom(roomCode)) {
+        // Room emptied out while the player was gone. Clear its phase timer.
+        clearRoomTimer(roomCode);
       }
     }, RECONNECT_GRACE_MS),
   );
@@ -95,6 +108,10 @@ function departPreviousRoom(socket: GameSocket, keepCode?: RoomCode) {
 
   if (room) {
     io.to(roomCode).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
+  } else if (!getRoom(roomCode)) {
+    // Last player left: the room is gone. Kill its phase timer so nothing
+    // fires into a dead room.
+    clearRoomTimer(roomCode);
   }
 }
 
@@ -113,6 +130,66 @@ function broadcastState(roomCode: RoomCode, room: Room) {
       );
     }
   }
+}
+
+// T09: move the room into `next` and (re)arm its phase timer. Any timer already
+// running for the room is cleared first, so an immediate transition never
+// leaves an orphaned timeout behind. `phaseEndsAt` is the absolute deadline the
+// client counts down to; it is null for phases with no timer. Broadcasts the
+// new state.
+function enterPhase(room: Room, next: GameState) {
+  const endsAt = armPhaseTimer(room.code, next.phase, () =>
+    onPhaseExpired(room.code),
+  );
+  room.state = { ...next, phaseEndsAt: endsAt };
+  broadcastState(room.code, room);
+}
+
+// T09: the phase timer elapsed with no early exit. Drive the state machine
+// forward along the natural "time's up" edge for the current phase. Early exits
+// (stroke completes, everyone voted, imposter submits, all ready) are owned by
+// T08/T12/T18/T29 and call enterPhase directly, which cancels this timer.
+function onPhaseExpired(roomCode: RoomCode) {
+  const room = getRoom(roomCode);
+  if (!room) {
+    // Room was deleted between the timer firing and this callback. Nothing to
+    // do - clearRoomTimer already ran on deletion.
+    return;
+  }
+
+  const { phase } = room.state;
+  let next: Result<GameState>;
+  switch (phase) {
+    case "DRAWING":
+      // T08 will replace this with per-turn advancement: advance turnIndex,
+      // bump `pass` on wrap, and only move to VOTING after the second pass.
+      // Until T08 lands, a single 20s timer ends the drawing phase.
+      next = endDrawing(room.state);
+      break;
+    case "VOTING":
+      // T18 owns the tally. With no votes recorded yet, a timeout means no
+      // accusation, which counts as the imposter surviving.
+      next = toRoundRevealFromVoting(room.state, null);
+      break;
+    case "FINAL_GUESS":
+      // No submission: finalGuess stays null, which resolves as a wrong guess.
+      next = toRoundRevealFromFinalGuess(room.state);
+      break;
+    case "ROUND_REVEAL":
+      next = endRoundReveal(room.state);
+      break;
+    default:
+      // No other phase arms a timer.
+      return;
+  }
+
+  if (!next.ok) {
+    console.warn(
+      `[room ${roomCode}] phase timeout from ${phase} rejected: ${next.message}`,
+    );
+    return;
+  }
+  enterPhase(room, next.data);
 }
 
 function shuffled<T>(items: T[]): T[] {
@@ -244,10 +321,16 @@ io.on("connection", (socket) => {
       ack({ ok: false, code: drawing.code, message: drawing.message });
       return;
     }
-    room.state = drawing.data;
 
     ack({ ok: true, data: undefined });
-    broadcastState(roomCode, room);
+    // enterPhase arms the DRAWING timer and broadcasts the state.
+    enterPhase(room, drawing.data);
+  });
+
+  socket.on(CLIENT_EVENTS.TIME_SYNC, (ack) => {
+    if (typeof ack === "function") {
+      ack(Date.now());
+    }
   });
 
   socket.on("disconnect", () => {

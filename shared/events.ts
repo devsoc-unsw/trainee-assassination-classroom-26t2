@@ -18,6 +18,7 @@ export const CLIENT_EVENTS = {
   SUBMIT_GUESS: "submit_guess",
   READY: "ready",
   START_GAME: "start_game",
+  TIME_SYNC: "time_sync",
 } as const;
 
 export const SERVER_EVENTS = {
@@ -70,6 +71,8 @@ export interface ClientToServerEvents {
   submit_guess: (payload: { text: string }) => void;
   ready: (payload: { ready: boolean }) => void;
   start_game: (ack: (result: Result<void>) => void) => void;
+
+  time_sync: (ack: (serverTime: number) => void) => void;
 }
 
 export interface ServerToClientEvents {
