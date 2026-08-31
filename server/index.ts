@@ -217,8 +217,9 @@ io.on("connection", (socket) => {
       return;
     }
 
+    // Pick imposter and turn order randomly.
     const turnOrder = shuffled(room.players.map((player) => player.id));
-    const imposterId = turnOrder[Math.floor(Math.random() * turnOrder.length)];
+    const imposterId = turnOrder[0];
 
     const started = startRound(room.state, {
       roundNumber: room.state.roundNumber + 1,
@@ -234,12 +235,16 @@ io.on("connection", (socket) => {
       ack({ ok: false, code: started.code, message: started.message });
       return;
     }
-    room.state = started.data;
 
-    const drawing = beginDrawing(room.state);
-    if (drawing.ok) {
-      room.state = drawing.data;
+    const drawing = beginDrawing(started.data);
+    if (!drawing.ok) {
+      console.warn(
+        `[room ${roomCode}] begin_drawing rejected after start_round: ${drawing.message}`,
+      );
+      ack({ ok: false, code: drawing.code, message: drawing.message });
+      return;
     }
+    room.state = drawing.data;
 
     ack({ ok: true, data: undefined });
     broadcastState(roomCode, room);
