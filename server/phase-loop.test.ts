@@ -90,11 +90,29 @@ describe("phase loop", () => {
   });
 
   describe("onPhaseExpired drives the timed edges", () => {
-    it("DRAWING -> VOTING when the turn timer runs out", () => {
-      const room = roomAt("DRAWING");
+    it("hands the turn on when a turn timer runs out", () => {
+      const room = roomAt("DRAWING", { turnIndex: 0, pass: 1 });
       const { loop, broadcast } = setup(room);
       loop.enterPhase(room, room.state);
       broadcast.mockClear();
+
+      vi.advanceTimersByTime(PHASE_DURATIONS_MS.DRAWING);
+
+      expect(room.state.phase).toBe("DRAWING");
+      expect(room.state.turnIndex).toBe(1);
+      expect(room.state.phaseEndsAt).toBe(
+        Date.now() + PHASE_DURATIONS_MS.DRAWING,
+      );
+      expect(broadcast).toHaveBeenCalledTimes(1);
+    });
+
+    it("DRAWING -> VOTING when the last turn of pass 2 runs out", () => {
+      const room = roomAt("DRAWING", {
+        turnIndex: PLAYERS.length - 1,
+        pass: 2,
+      });
+      const { loop } = setup(room);
+      loop.enterPhase(room, room.state);
 
       vi.advanceTimersByTime(PHASE_DURATIONS_MS.DRAWING);
 
@@ -102,7 +120,23 @@ describe("phase loop", () => {
       expect(room.state.phaseEndsAt).toBe(
         Date.now() + PHASE_DURATIONS_MS.VOTING,
       );
-      expect(broadcast).toHaveBeenCalledTimes(1);
+    });
+
+    it("gives every player both passes on the clock before voting", () => {
+      const room = roomAt("DRAWING", { turnIndex: 0, pass: 1 });
+      const { loop } = setup(room);
+      loop.enterPhase(room, room.state);
+
+      // One timer per turn: everyone draws once, then again in pass 2.
+      for (let turn = 1; turn < PLAYERS.length * 2; turn++) {
+        vi.advanceTimersByTime(PHASE_DURATIONS_MS.DRAWING);
+        expect(room.state.phase).toBe("DRAWING");
+      }
+      expect(room.state.pass).toBe(2);
+      expect(room.state.turnIndex).toBe(PLAYERS.length - 1);
+
+      vi.advanceTimersByTime(PHASE_DURATIONS_MS.DRAWING);
+      expect(room.state.phase).toBe("VOTING");
     });
 
     it("VOTING -> ROUND_REVEAL with no accusation (imposter survives)", () => {
@@ -140,7 +174,11 @@ describe("phase loop", () => {
     });
 
     it("chains DRAWING -> VOTING -> ROUND_REVEAL -> SCORING across successive timeouts", () => {
-      const room = roomAt("DRAWING");
+      // Last turn of pass 2, so the next DRAWING timeout ends the phase.
+      const room = roomAt("DRAWING", {
+        turnIndex: PLAYERS.length - 1,
+        pass: 2,
+      });
       const { loop } = setup(room);
       loop.enterPhase(room, room.state);
 
