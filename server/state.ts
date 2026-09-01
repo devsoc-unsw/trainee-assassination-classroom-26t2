@@ -68,51 +68,6 @@ export interface RoundStartParams {
   category: string;
 }
 
-export function advanceTurn(state: GameState): Result<GameState> {
-  const guard = assertPhase(state, ["DRAWING"], "advance_turn");
-  if (!guard.ok) {
-    return guard;
-  }
-
-  const nextIndex = state.turnIndex + 1;
-  if (nextIndex < state.turnOrder.length) {
-    return { ok: true, data: { ...state, turnIndex: nextIndex } };
-  }
-
-  if (state.pass >= 2) {
-    return endDrawing(state);
-  }
-
-  return { ok: true, data: { ...state, turnIndex: 0, pass: 2 } };
-}
-
-export interface RemovePlayerResult {
-  state: GameState;
-  wasCurrent: boolean;
-}
-
-export function removePlayerFromTurnOrder(
-  state: GameState,
-  playerId: PlayerId,
-): RemovePlayerResult {
-  const wasCurrent = state.turnOrder[state.turnIndex] === playerId;
-  const removedIndex = state.turnOrder.indexOf(playerId);
-  const removedBeforeCurrent = removedIndex !== -1 && removedIndex < state.turnIndex;
-  const newOrder = state.turnOrder.filter((id) => id !== playerId);
-
-  let newIndex = state.turnIndex;
-  if (removedBeforeCurrent) {
-    newIndex -= 1;
-  }
-  if (newIndex < 0 || newIndex >= newOrder.length) {
-    newIndex = 0;
-  }
-
-  return {
-    state: { ...state, turnOrder: newOrder, turnIndex: newIndex }, wasCurrent};
-}
-
-
 // LOBBY -> ROUND_STARTING (first round) or SCORING -> ROUND_STARTING (every
 // round after).
 export function startRound(
@@ -162,6 +117,54 @@ export function endDrawing(state: GameState): Result<GameState> {
     "end_drawing",
     (s) => s,
   );
+}
+
+// Whose turn it is.
+export function isCurrentDrawer(state: GameState, playerId: PlayerId): boolean {
+  return (
+    state.phase === "DRAWING" && state.turnOrder[state.turnIndex] === playerId
+  );
+}
+
+// Hand the turn to the next player. Running off the end of the order starts
+// pass 2; running off the end a second time ends the drawing phase (DRAWING -> VOTING edge).
+export function advanceTurn(state: GameState): Result<GameState> {
+  const guard = assertPhase(state, ["DRAWING"], "advance_turn");
+  if (!guard.ok) {
+    return guard;
+  }
+
+  const nextIndex = state.turnIndex + 1;
+  if (nextIndex < state.turnOrder.length) {
+    return { ok: true, data: { ...state, turnIndex: nextIndex } };
+  }
+
+  if (state.pass === 1 && state.turnOrder.length > 0) {
+    return { ok: true, data: { ...state, turnIndex: 0, pass: 2 } };
+  }
+
+  return endDrawing(state);
+}
+
+// Take a player out of the rotation, leaving turnIndex on whoever it already
+// pointed at.
+export function dropFromTurnOrder(
+  state: GameState,
+  playerId: PlayerId,
+): GameState {
+  const removedIndex = state.turnOrder.indexOf(playerId);
+  if (removedIndex === -1) {
+    return state;
+  }
+
+  const turnOrder = state.turnOrder.filter((id) => id !== playerId);
+  let turnIndex =
+    removedIndex < state.turnIndex ? state.turnIndex - 1 : state.turnIndex;
+  if (turnIndex >= turnOrder.length) {
+    turnIndex = 0;
+  }
+
+  return { ...state, turnOrder, turnIndex };
 }
 
 // VOTING -> FINAL_GUESS

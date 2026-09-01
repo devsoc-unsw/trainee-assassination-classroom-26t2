@@ -2,6 +2,8 @@
 
 import type { Phase, RoomCode } from "@/shared/types";
 
+// DRAWING is re-armed for every turn, so its duration is one player's turn
+// rather than the whole phase.
 export const PHASE_DURATIONS_MS = {
   DRAWING: 20_000,
   VOTING: 45_000,
