@@ -6,6 +6,7 @@ import type {
   ServerToClientEvents,
 } from "../shared/events";
 import type { PlayerId, Room, RoomCode } from "../shared/types";
+import { createPhaseLoop } from "./phase-loop";
 import {
   canStartGame,
   createRoom,
@@ -17,6 +18,7 @@ import {
   toPublicRoom,
 } from "./rooms";
 import { beginDrawing, serialiseStateFor, startRound } from "./state";
+import { clearRoomTimer } from "./timers";
 import { parseIdentity, parseRoomCode, safeAck } from "./validate";
 
 interface SocketData {
@@ -74,6 +76,9 @@ function scheduleRemoval(roomCode: RoomCode, playerId: PlayerId) {
       const room = leaveRoom(roomCode, playerId);
       if (room) {
         io.to(roomCode).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
+      } else if (!getRoom(roomCode)) {
+        // Room emptied out while the player was gone. Clear its phase timer.
+        clearRoomTimer(roomCode);
       }
     }, RECONNECT_GRACE_MS),
   );
@@ -95,6 +100,10 @@ function departPreviousRoom(socket: GameSocket, keepCode?: RoomCode) {
 
   if (room) {
     io.to(roomCode).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
+  } else if (!getRoom(roomCode)) {
+    // Last player left: the room is gone. Kill its phase timer so nothing
+    // fires into a dead room.
+    clearRoomTimer(roomCode);
   }
 }
 
@@ -114,6 +123,12 @@ function broadcastState(roomCode: RoomCode, room: Room) {
     }
   }
 }
+
+// T09: the phase loop drives timed transitions. See server/phase-loop.ts.
+const { enterPhase } = createPhaseLoop({
+  getRoom,
+  broadcast: (room) => broadcastState(room.code, room),
+});
 
 function shuffled<T>(items: T[]): T[] {
   const copy = [...items];
@@ -244,10 +259,16 @@ io.on("connection", (socket) => {
       ack({ ok: false, code: drawing.code, message: drawing.message });
       return;
     }
-    room.state = drawing.data;
 
     ack({ ok: true, data: undefined });
-    broadcastState(roomCode, room);
+    // enterPhase arms the DRAWING timer and broadcasts the state.
+    enterPhase(room, drawing.data);
+  });
+
+  socket.on(CLIENT_EVENTS.TIME_SYNC, (ack) => {
+    if (typeof ack === "function") {
+      ack(Date.now());
+    }
   });
 
   socket.on("disconnect", () => {
