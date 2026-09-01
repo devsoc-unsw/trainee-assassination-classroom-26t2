@@ -5,16 +5,20 @@ import type {
   ClientToServerEvents,
   ServerToClientEvents,
 } from "../shared/events";
-import type { PlayerId, RoomCode } from "../shared/types";
+import type { PlayerId, Room, RoomCode } from "../shared/types";
+import { createPhaseLoop } from "./phase-loop";
 import {
   canStartGame,
   createRoom,
+  getRoom,
   joinRoom,
   leaveRoom,
   markDisconnected,
   setReady,
   toPublicRoom,
 } from "./rooms";
+import { beginDrawing, serialiseStateFor, startRound } from "./state";
+import { clearRoomTimer } from "./timers";
 import { parseIdentity, parseRoomCode, safeAck } from "./validate";
 
 interface SocketData {
@@ -72,6 +76,9 @@ function scheduleRemoval(roomCode: RoomCode, playerId: PlayerId) {
       const room = leaveRoom(roomCode, playerId);
       if (room) {
         io.to(roomCode).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
+      } else if (!getRoom(roomCode)) {
+        // Room emptied out while the player was gone. Clear its phase timer.
+        clearRoomTimer(roomCode);
       }
     }, RECONNECT_GRACE_MS),
   );
@@ -93,7 +100,43 @@ function departPreviousRoom(socket: GameSocket, keepCode?: RoomCode) {
 
   if (room) {
     io.to(roomCode).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
+  } else if (!getRoom(roomCode)) {
+    // Last player left: the room is gone. Kill its phase timer so nothing
+    // fires into a dead room.
+    clearRoomTimer(roomCode);
   }
+}
+
+function broadcastState(roomCode: RoomCode, room: Room) {
+  const socketIds = io.sockets.adapter.rooms.get(roomCode);
+  if (!socketIds) {
+    return;
+  }
+  for (const socketId of socketIds) {
+    const memberSocket = io.sockets.sockets.get(socketId);
+    const playerId = memberSocket?.data.playerId;
+    if (memberSocket && playerId) {
+      memberSocket.emit(
+        SERVER_EVENTS.STATE_UPDATED,
+        serialiseStateFor(playerId, room),
+      );
+    }
+  }
+}
+
+// T09: the phase loop drives timed transitions. See server/phase-loop.ts.
+const { enterPhase } = createPhaseLoop({
+  getRoom,
+  broadcast: (room) => broadcastState(room.code, room),
+});
+
+function shuffled<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
 }
 
 io.on("connection", (socket) => {
@@ -183,10 +226,49 @@ io.on("connection", (socket) => {
       return;
     }
 
-    // TODO(T-next): trigger round init (imposter/word assignment, turn order)
-    // and broadcast STATE_UPDATED once round-start logic exists. This handler
-    // intentionally stops at validation for T06.
+    const room = getRoom(roomCode);
+    if (!room) {
+      ack({ ok: false, code: "ROOM_NOT_FOUND", message: "Not in a room." });
+      return;
+    }
+
+    // Pick imposter and turn order randomly.
+    const turnOrder = shuffled(room.players.map((player) => player.id));
+    const imposterId = turnOrder[0];
+
+    const started = startRound(room.state, {
+      roundNumber: room.state.roundNumber + 1,
+      turnOrder,
+      imposterId,
+      word: "placeholder",
+      category: "a placeholder",
+    });
+    if (!started.ok) {
+      console.warn(
+        `[room ${roomCode}] start_game rejected: ${started.message}`,
+      );
+      ack({ ok: false, code: started.code, message: started.message });
+      return;
+    }
+
+    const drawing = beginDrawing(started.data);
+    if (!drawing.ok) {
+      console.warn(
+        `[room ${roomCode}] begin_drawing rejected after start_round: ${drawing.message}`,
+      );
+      ack({ ok: false, code: drawing.code, message: drawing.message });
+      return;
+    }
+
     ack({ ok: true, data: undefined });
+    // enterPhase arms the DRAWING timer and broadcasts the state.
+    enterPhase(room, drawing.data);
+  });
+
+  socket.on(CLIENT_EVENTS.TIME_SYNC, (ack) => {
+    if (typeof ack === "function") {
+      ack(Date.now());
+    }
   });
 
   socket.on("disconnect", () => {
