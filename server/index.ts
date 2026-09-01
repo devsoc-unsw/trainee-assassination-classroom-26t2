@@ -119,6 +119,7 @@ function scheduleRemoval(roomCode: RoomCode, playerId: PlayerId) {
         const advanced = advanceTurn(room.state);
         if (advanced.ok) {
           room.state = advanced.data;
+          armTurnTimer(roomCode, room);
         }
       }
 
@@ -294,6 +295,7 @@ io.on("connection", (socket) => {
       return;
     }
     room.state = drawing.data;
+    armTurnTimer(roomCode, room);
 
     ack({ ok: true, data: undefined });
     broadcastState(roomCode, room);
@@ -318,6 +320,7 @@ io.on("connection", (socket) => {
         if (advanced.ok) {
           room.state = advanced.data;
           broadcastState(roomCode, room);
+          armTurnTimer(roomCode, room);
         }
       }
     }
@@ -348,6 +351,7 @@ io.on("connection", (socket) => {
     }
     room.state = advanced.data;
     broadcastState(roomCode, room);
+    armTurnTimer(roomCode, room);
   });
 });
 
