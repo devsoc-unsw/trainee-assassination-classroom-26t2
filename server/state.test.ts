@@ -2,11 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { GameState, Room } from "@/shared/types";
 import { createInitialGameState } from "./rooms";
 import {
+  advanceTurn,
   assertPhase,
   beginDrawing,
+  dropFromTurnOrder,
   endDrawing,
   endGame,
   endRoundReveal,
+  isCurrentDrawer,
   resolveRoundWinner,
   serialiseStateFor,
   startRound,
@@ -209,6 +212,105 @@ describe("invalid transitions", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.message).toContain("DRAWING");
     warn.mockRestore();
+  });
+});
+
+describe("advanceTurn", () => {
+  it("moves to the next player inside a pass", () => {
+    const result = advanceTurn(stateAt("DRAWING", { turnIndex: 0, pass: 1 }));
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.phase).toBe("DRAWING");
+      expect(result.data.turnIndex).toBe(1);
+      expect(result.data.pass).toBe(1);
+    }
+  });
+
+  it("wraps off the end of pass 1 into pass 2", () => {
+    const result = advanceTurn(
+      stateAt("DRAWING", { turnIndex: PLAYERS.length - 1, pass: 1 }),
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.phase).toBe("DRAWING");
+      expect(result.data.turnIndex).toBe(0);
+      expect(result.data.pass).toBe(2);
+    }
+  });
+
+  it("DRAWING -> VOTING off the end of pass 2", () => {
+    const result = advanceTurn(
+      stateAt("DRAWING", { turnIndex: PLAYERS.length - 1, pass: 2 }),
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.phase).toBe("VOTING");
+  });
+
+  it("DRAWING -> VOTING when everyone has left the rotation", () => {
+    const result = advanceTurn(
+      stateAt("DRAWING", { turnOrder: [], turnIndex: 0, pass: 1 }),
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.phase).toBe("VOTING");
+  });
+
+  it("is rejected outside DRAWING", () => {
+    expect(advanceTurn(stateAt("VOTING")).ok).toBe(false);
+  });
+});
+
+describe("dropFromTurnOrder", () => {
+  it("keeps the current drawer when someone earlier leaves", () => {
+    const state = dropFromTurnOrder(
+      stateAt("DRAWING", { turnIndex: 2 }),
+      PLAYERS[0],
+    );
+    expect(state.turnOrder).toEqual(["bob", "carol", "dave"]);
+    expect(state.turnOrder[state.turnIndex]).toBe(PLAYERS[2]);
+  });
+
+  it("keeps the current drawer when someone later leaves", () => {
+    const state = dropFromTurnOrder(
+      stateAt("DRAWING", { turnIndex: 1 }),
+      PLAYERS[3],
+    );
+    expect(state.turnOrder).toEqual(["alice", "bob", "carol"]);
+    expect(state.turnOrder[state.turnIndex]).toBe(PLAYERS[1]);
+  });
+
+  it("leaves the index on the next player when the current drawer leaves", () => {
+    const state = dropFromTurnOrder(
+      stateAt("DRAWING", { turnIndex: 1 }),
+      PLAYERS[1],
+    );
+    expect(state.turnOrder).toEqual(["alice", "carol", "dave"]);
+    expect(state.turnOrder[state.turnIndex]).toBe(PLAYERS[2]);
+  });
+
+  it("wraps to the start when the last player in the order leaves", () => {
+    const state = dropFromTurnOrder(
+      stateAt("DRAWING", { turnIndex: PLAYERS.length - 1 }),
+      PLAYERS[PLAYERS.length - 1],
+    );
+    expect(state.turnIndex).toBe(0);
+  });
+
+  it("ignores a player who is not in the rotation", () => {
+    const before = stateAt("DRAWING", { turnIndex: 2 });
+    expect(dropFromTurnOrder(before, "mallory")).toBe(before);
+  });
+});
+
+describe("isCurrentDrawer", () => {
+  it("is true only for the player at turnIndex", () => {
+    const state = stateAt("DRAWING", { turnIndex: 1 });
+    expect(isCurrentDrawer(state, PLAYERS[1])).toBe(true);
+    expect(isCurrentDrawer(state, PLAYERS[0])).toBe(false);
+  });
+
+  it("is false outside DRAWING", () => {
+    const state = stateAt("VOTING", { turnIndex: 1 });
+    expect(isCurrentDrawer(state, PLAYERS[1])).toBe(false);
   });
 });
 
