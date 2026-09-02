@@ -6,7 +6,7 @@ import { CANVAS_HEIGHT, CANVAS_WIDTH, PlayerId, PublicRoom, Point } from "@/shar
 let ctx: null | CanvasRenderingContext2D = null;
 
 interface CanvasProps {
-  room: PublicRoom;
+  room: PublicRoom | null;
   playerId: PlayerId;
   socket: AppSocket;
 }
@@ -81,6 +81,9 @@ function finishDraw(component: HTMLCanvasElement, xpos: number, ypos: number, ro
 }
 
 export function Canvas({ room, playerId, socket }: CanvasProps) {
+    if (room == null) {
+        return <h1>ERROR: DISCONNECTED FROM ROOM</h1> //TODO: Not sure if this is graceful way to handle this :)
+    }
     return (
         <canvas
             style={{ width: "800px", height: "600px", border: "1px solid red" }}

@@ -1,10 +1,11 @@
 import { Canvas } from "./components/game/Canvas";
+import { Game } from "./game";
 import { Lobby } from "./lobby";
 
 export default function Home() {
   return (
     <div className="relative flex flex-1 flex-col items-center overflow-hidden font-sans">
-      {/* <div
+      <div
         className="absolute inset-0 -z-10 bg-repeat animate-diagonal-scroll"
         style={{
           backgroundImage: "url('/images/landing-page/landing-page-bg.jpg')",
@@ -12,8 +13,8 @@ export default function Home() {
           transform: "scale(1.75)",
         }}
       />
-      <Lobby /> */}
-      <Canvas />
+      <Lobby />
+      <Game />
     </div>
   );
 }
