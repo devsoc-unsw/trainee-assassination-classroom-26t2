@@ -36,6 +36,7 @@ function roomAt(
       colour: "#000",
       connected: true,
       ready: true,
+      isSpectator: false,
     })),
     state: stateAt(phase, overrides),
     deck: createWordDeck(1),

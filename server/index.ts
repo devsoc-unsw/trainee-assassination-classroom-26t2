@@ -14,6 +14,7 @@ import {
   joinRoom,
   leaveRoom,
   markDisconnected,
+  promoteSpectators,
   setReady,
   toPublicRoom,
 } from "./rooms";
@@ -264,8 +265,9 @@ io.on("connection", (socket) => {
       ack({ ok: false, code: "ROOM_NOT_FOUND", message: "Not in a room." });
       return;
     }
-
+    
     // Pick imposter and turn order randomly.
+    promoteSpectators(room);
     const turnOrder = shuffled(room.players.map((player) => player.id));
     const imposterId = pickImposter(turnOrder, room.state.imposterId);
     const entry = drawWord(room.deck);
