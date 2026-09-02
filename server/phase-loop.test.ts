@@ -3,6 +3,7 @@ import type { GameState, Room } from "@/shared/types";
 import { createPhaseLoop } from "./phase-loop";
 import { createInitialGameState } from "./rooms";
 import { PHASE_DURATIONS_MS, clearRoomTimer, getRoomTimer } from "./timers";
+import { createWordDeck } from "./word-selection";
 
 const PLAYERS = ["alice", "bob", "carol", "dave"];
 const CODE = "ROOM09";
@@ -37,6 +38,7 @@ function roomAt(
       ready: true,
     })),
     state: stateAt(phase, overrides),
+    deck: createWordDeck(1),
   };
 }
 

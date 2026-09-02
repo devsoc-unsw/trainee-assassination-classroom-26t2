@@ -9,6 +9,7 @@ import {
   type Room,
   type RoomCode,
 } from "@/shared/types";
+import { createWordDeck } from "./word-selection";
 
 const PLAYER_COLOURS = [
   "#772322", // red (player-card-red.png)
@@ -67,10 +68,6 @@ export function createInitialGameState(): GameState {
   };
 }
 
-export function getRoom(code: RoomCode): Room | null {
-  return rooms.get(normaliseCode(code)) ?? null;
-}
-
 export function toPublicRoom(room: Room): PublicRoom {
   return {
     code: room.code,
@@ -93,9 +90,14 @@ export function createRoom(hostId: PlayerId, nickname: string): Room {
     hostId,
     players: [host],
     state: createInitialGameState(),
+    deck: createWordDeck(),
   };
   rooms.set(code, room);
   return room;
+}
+
+export function getRoom(code: RoomCode): Room | null {
+  return rooms.get(normaliseCode(code)) ?? null;
 }
 
 export function joinRoom(

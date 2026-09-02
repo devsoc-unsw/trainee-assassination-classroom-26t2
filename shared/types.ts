@@ -110,10 +110,18 @@ export interface PublicRoom {
   players: Player[];
 }
 
+// A room's private word draw order.
+export interface WordDeck {
+  seed: number;
+  order: number[];
+  cursor: number;
+}
+
 // Server-side only, holds the full GameState. Never emitted.
 export interface Room {
   code: RoomCode;
   hostId: PlayerId;
   players: Player[];
   state: GameState;
+  deck: WordDeck;
 }
