@@ -2,11 +2,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { GameState, Room } from "@/shared/types";
 import { createInitialGameState } from "./rooms";
 import {
+  advanceTurn,
   assertPhase,
   beginDrawing,
+  dropFromTurnOrder,
   endDrawing,
   endGame,
   endRoundReveal,
+  isCurrentDrawer,
+  pickImposter,
   resolveRoundWinner,
   serialiseStateFor,
   startRound,
@@ -14,10 +18,14 @@ import {
   toRoundRevealFromFinalGuess,
   toRoundRevealFromVoting,
 } from "./state";
+import { createWordDeck } from "./word-selection";
 
 const PLAYERS = ["alice", "bob", "carol", "dave"];
 
-function stateAt(phase: GameState["phase"], overrides: Partial<GameState> = {}): GameState {
+function stateAt(
+  phase: GameState["phase"],
+  overrides: Partial<GameState> = {},
+): GameState {
   return {
     ...createInitialGameState(),
     phase,
@@ -41,6 +49,7 @@ function roomWith(state: GameState): Room {
       ready: true,
     })),
     state,
+    deck: createWordDeck(1),
   };
 }
 
@@ -90,6 +99,27 @@ describe("valid transitions", () => {
     });
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.data.phase).toBe("ROUND_STARTING");
+  });
+
+  it("startRound carries scores across rounds but resets the canvas and votes", () => {
+    const previous = stateAt("SCORING", {
+      scores: { groupRoundsWon: 3, imposterRoundsWon: 1, perPlayer: {} },
+      strokes: [{ id: "s1", playerId: PLAYERS[0], colour: "#000", points: [] }],
+      votes: [{ voterId: PLAYERS[1], targetId: PLAYERS[2] }],
+    });
+    const result = startRound(previous, {
+      roundNumber: previous.roundNumber + 1,
+      turnOrder: PLAYERS,
+      imposterId: PLAYERS[0],
+      word: "dog",
+      category: "an animal",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.scores).toEqual(previous.scores);
+      expect(result.data.strokes).toEqual([]);
+      expect(result.data.votes).toEqual([]);
+    }
   });
 
   it("ROUND_STARTING -> DRAWING via beginDrawing", () => {
@@ -212,6 +242,105 @@ describe("invalid transitions", () => {
   });
 });
 
+describe("advanceTurn", () => {
+  it("moves to the next player inside a pass", () => {
+    const result = advanceTurn(stateAt("DRAWING", { turnIndex: 0, pass: 1 }));
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.phase).toBe("DRAWING");
+      expect(result.data.turnIndex).toBe(1);
+      expect(result.data.pass).toBe(1);
+    }
+  });
+
+  it("wraps off the end of pass 1 into pass 2", () => {
+    const result = advanceTurn(
+      stateAt("DRAWING", { turnIndex: PLAYERS.length - 1, pass: 1 }),
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.phase).toBe("DRAWING");
+      expect(result.data.turnIndex).toBe(0);
+      expect(result.data.pass).toBe(2);
+    }
+  });
+
+  it("DRAWING -> VOTING off the end of pass 2", () => {
+    const result = advanceTurn(
+      stateAt("DRAWING", { turnIndex: PLAYERS.length - 1, pass: 2 }),
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.phase).toBe("VOTING");
+  });
+
+  it("DRAWING -> VOTING when everyone has left the rotation", () => {
+    const result = advanceTurn(
+      stateAt("DRAWING", { turnOrder: [], turnIndex: 0, pass: 1 }),
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.phase).toBe("VOTING");
+  });
+
+  it("is rejected outside DRAWING", () => {
+    expect(advanceTurn(stateAt("VOTING")).ok).toBe(false);
+  });
+});
+
+describe("dropFromTurnOrder", () => {
+  it("keeps the current drawer when someone earlier leaves", () => {
+    const state = dropFromTurnOrder(
+      stateAt("DRAWING", { turnIndex: 2 }),
+      PLAYERS[0],
+    );
+    expect(state.turnOrder).toEqual(["bob", "carol", "dave"]);
+    expect(state.turnOrder[state.turnIndex]).toBe(PLAYERS[2]);
+  });
+
+  it("keeps the current drawer when someone later leaves", () => {
+    const state = dropFromTurnOrder(
+      stateAt("DRAWING", { turnIndex: 1 }),
+      PLAYERS[3],
+    );
+    expect(state.turnOrder).toEqual(["alice", "bob", "carol"]);
+    expect(state.turnOrder[state.turnIndex]).toBe(PLAYERS[1]);
+  });
+
+  it("leaves the index on the next player when the current drawer leaves", () => {
+    const state = dropFromTurnOrder(
+      stateAt("DRAWING", { turnIndex: 1 }),
+      PLAYERS[1],
+    );
+    expect(state.turnOrder).toEqual(["alice", "carol", "dave"]);
+    expect(state.turnOrder[state.turnIndex]).toBe(PLAYERS[2]);
+  });
+
+  it("wraps to the start when the last player in the order leaves", () => {
+    const state = dropFromTurnOrder(
+      stateAt("DRAWING", { turnIndex: PLAYERS.length - 1 }),
+      PLAYERS[PLAYERS.length - 1],
+    );
+    expect(state.turnIndex).toBe(0);
+  });
+
+  it("ignores a player who is not in the rotation", () => {
+    const before = stateAt("DRAWING", { turnIndex: 2 });
+    expect(dropFromTurnOrder(before, "mallory")).toBe(before);
+  });
+});
+
+describe("isCurrentDrawer", () => {
+  it("is true only for the player at turnIndex", () => {
+    const state = stateAt("DRAWING", { turnIndex: 1 });
+    expect(isCurrentDrawer(state, PLAYERS[1])).toBe(true);
+    expect(isCurrentDrawer(state, PLAYERS[0])).toBe(false);
+  });
+
+  it("is false outside DRAWING", () => {
+    const state = stateAt("VOTING", { turnIndex: 1 });
+    expect(isCurrentDrawer(state, PLAYERS[1])).toBe(false);
+  });
+});
+
 describe("resolveRoundWinner", () => {
   it("imposter wins when nobody was accused", () => {
     const state = stateAt("ROUND_REVEAL", { accusedId: null });
@@ -311,5 +440,40 @@ describe("serialiseStateFor", () => {
       const view = serialiseStateFor(PLAYERS[0], roomWith(stateAt(phase)));
       expect(view.phase).toBe(phase);
     }
+  });
+});
+
+describe("pickImposter", () => {
+  it("never repeats the previous imposter when another player exists", () => {
+    const players = ["p1", "p2", "p3", "p4", "p5"];
+    let previous: string | null = null;
+    for (let i = 0; i < 200; i++) {
+      const picked = pickImposter(players, previous);
+      if (previous !== null) {
+        expect(picked).not.toBe(previous);
+      }
+      previous = picked;
+    }
+  });
+
+  it("distributes picks within a reasonable margin of even over many rounds", () => {
+    const players = ["p1", "p2", "p3", "p4", "p5"];
+    const rounds = 1000;
+    const counts: Record<string, number> = {};
+    let previous: string | null = null;
+    for (let i = 0; i < rounds; i++) {
+      const picked = pickImposter(players, previous);
+      counts[picked] = (counts[picked] ?? 0) + 1;
+      previous = picked;
+    }
+    const expected = rounds / players.length;
+    for (const player of players) {
+      expect(counts[player]).toBeGreaterThan(expected * 0.75);
+      expect(counts[player]).toBeLessThan(expected * 1.25);
+    }
+  });
+
+  it("falls back to the only player when there is just one", () => {
+    expect(pickImposter(["p1"], "p1")).toBe("p1");
   });
 });

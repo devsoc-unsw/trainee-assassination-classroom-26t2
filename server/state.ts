@@ -1,12 +1,16 @@
 // T07: the server-authoritative game state machine.
 //
+// LOBBY → ROUND_STARTING → DRAWING → VOTING ┬→ FINAL_GUESS → ROUND_REVEAL → SCORING ┬→ GAME_OVER
+//   ↑                                       └────────────────→ ROUND_REVEAL ─┘      │
+//   └─────────────────────── (SCORING → ROUND_STARTING, next round) ─────────────-──┘
+//
 // Two jobs live here, and they turn out to be the same check:
 //   1. A transition between phases is only legal from certain source phases.
 //   2. A client event (submit a stroke, cast a vote...) is only legal during
 //      certain phases.
 // Both are answered by assertPhase. Transition functions use it to guard
-// their own mutation; event handlers in index.ts (and future tickets like
-// T12/T18/T29) use it directly to decide whether to accept an incoming event.
+// their own mutation; event handlers in index.ts use it directly to decide whether
+// to accept an incoming event.
 //
 // serialiseStateFor is the only function allowed to read imposterId, word,
 // or votes and turn them into something a specific client may see. Every
@@ -93,6 +97,21 @@ export function startRound(
   );
 }
 
+// Picks who's gonna be the imposter this round. 
+// Avoids repeating the same player two rounds in a row
+export function pickImposter(
+  playerIds: PlayerId[],
+  previousImposterId: PlayerId | null,
+): PlayerId {
+  let eligible: PlayerId[];
+  if (playerIds.length > 1) {
+    eligible = playerIds.filter((id) => id !== previousImposterId);
+  } else {
+    eligible = playerIds;
+  }
+  return eligible[Math.floor(Math.random() * eligible.length)];
+}
+
 // ROUND_STARTING -> DRAWING
 export function beginDrawing(state: GameState): Result<GameState> {
   return commitTransition(
@@ -113,6 +132,54 @@ export function endDrawing(state: GameState): Result<GameState> {
     "end_drawing",
     (s) => s,
   );
+}
+
+// Whose turn it is.
+export function isCurrentDrawer(state: GameState, playerId: PlayerId): boolean {
+  return (
+    state.phase === "DRAWING" && state.turnOrder[state.turnIndex] === playerId
+  );
+}
+
+// Hand the turn to the next player. Running off the end of the order starts
+// pass 2; running off the end a second time ends the drawing phase (DRAWING -> VOTING edge).
+export function advanceTurn(state: GameState): Result<GameState> {
+  const guard = assertPhase(state, ["DRAWING"], "advance_turn");
+  if (!guard.ok) {
+    return guard;
+  }
+
+  const nextIndex = state.turnIndex + 1;
+  if (nextIndex < state.turnOrder.length) {
+    return { ok: true, data: { ...state, turnIndex: nextIndex } };
+  }
+
+  if (state.pass === 1 && state.turnOrder.length > 0) {
+    return { ok: true, data: { ...state, turnIndex: 0, pass: 2 } };
+  }
+
+  return endDrawing(state);
+}
+
+// Take a player out of the rotation, leaving turnIndex on whoever it already
+// pointed at.
+export function dropFromTurnOrder(
+  state: GameState,
+  playerId: PlayerId,
+): GameState {
+  const removedIndex = state.turnOrder.indexOf(playerId);
+  if (removedIndex === -1) {
+    return state;
+  }
+
+  const turnOrder = state.turnOrder.filter((id) => id !== playerId);
+  let turnIndex =
+    removedIndex < state.turnIndex ? state.turnIndex - 1 : state.turnIndex;
+  if (turnIndex >= turnOrder.length) {
+    turnIndex = 0;
+  }
+
+  return { ...state, turnOrder, turnIndex };
 }
 
 // VOTING -> FINAL_GUESS

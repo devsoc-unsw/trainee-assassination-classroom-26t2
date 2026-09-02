@@ -10,10 +10,7 @@ export interface Identity {
 }
 
 function sanitiseNickname(raw: string): string {
-  return raw
-    .replace(CONTROL_CHARS, "")
-    .trim()
-    .slice(0, NICKNAME_MAX_LENGTH);
+  return raw.replace(CONTROL_CHARS, "").trim().slice(0, NICKNAME_MAX_LENGTH);
 }
 
 function fields(payload: unknown): Record<string, unknown> | null {
