@@ -27,6 +27,7 @@ import {
 } from "./state";
 import { clearRoomTimer } from "./timers";
 import { parseIdentity, parseRoomCode, safeAck } from "./validate";
+import { drawWord } from "./word-selection";
 
 interface SocketData {
   playerId?: PlayerId;
@@ -266,13 +267,14 @@ io.on("connection", (socket) => {
     // Pick imposter and turn order randomly.
     const turnOrder = shuffled(room.players.map((player) => player.id));
     const imposterId = turnOrder[0];
+    const entry = drawWord(room.deck);
 
     const started = startRound(room.state, {
       roundNumber: room.state.roundNumber + 1,
       turnOrder,
       imposterId,
-      word: "placeholder",
-      category: "a placeholder",
+      word: entry.word,
+      category: entry.category,
     });
     if (!started.ok) {
       console.warn(

@@ -17,6 +17,7 @@ import {
   toRoundRevealFromFinalGuess,
   toRoundRevealFromVoting,
 } from "./state";
+import { createWordDeck } from "./word-selection";
 
 const PLAYERS = ["alice", "bob", "carol", "dave"];
 
@@ -47,6 +48,7 @@ function roomWith(state: GameState): Room {
       ready: true,
     })),
     state,
+    deck: createWordDeck(1),
   };
 }
 
@@ -96,6 +98,27 @@ describe("valid transitions", () => {
     });
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.data.phase).toBe("ROUND_STARTING");
+  });
+
+  it("startRound carries scores across rounds but resets the canvas and votes", () => {
+    const previous = stateAt("SCORING", {
+      scores: { groupRoundsWon: 3, imposterRoundsWon: 1, perPlayer: {} },
+      strokes: [{ id: "s1", playerId: PLAYERS[0], colour: "#000", points: [] }],
+      votes: [{ voterId: PLAYERS[1], targetId: PLAYERS[2] }],
+    });
+    const result = startRound(previous, {
+      roundNumber: previous.roundNumber + 1,
+      turnOrder: PLAYERS,
+      imposterId: PLAYERS[0],
+      word: "dog",
+      category: "an animal",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.scores).toEqual(previous.scores);
+      expect(result.data.strokes).toEqual([]);
+      expect(result.data.votes).toEqual([]);
+    }
   });
 
   it("ROUND_STARTING -> DRAWING via beginDrawing", () => {
