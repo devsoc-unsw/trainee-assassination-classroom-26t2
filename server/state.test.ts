@@ -456,17 +456,20 @@ describe("pickImposter", () => {
     }
   });
 
-  it("distributes picks roughly evenly over many rounds", () => {
+  it("distributes picks within a reasonable margin of even over many rounds", () => {
     const players = ["p1", "p2", "p3", "p4", "p5"];
+    const rounds = 1000;
     const counts: Record<string, number> = {};
     let previous: string | null = null;
-    for (let i = 0; i < 500; i++) {
+    for (let i = 0; i < rounds; i++) {
       const picked = pickImposter(players, previous);
       counts[picked] = (counts[picked] ?? 0) + 1;
       previous = picked;
     }
+    const expected = rounds / players.length;
     for (const player of players) {
-      expect(counts[player]).toBeGreaterThan(0);
+      expect(counts[player]).toBeGreaterThan(expected * 0.75);
+      expect(counts[player]).toBeLessThan(expected * 1.25);
     }
   });
 
