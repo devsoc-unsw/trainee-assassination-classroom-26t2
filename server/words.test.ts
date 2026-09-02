@@ -1,7 +1,6 @@
 // T10: A failure here means fix the list, not the test.
 
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, expect, it } from "vitest";
 import {
   ALLOWED_S_ENDINGS,
   CATEGORY_HINTS,
@@ -26,14 +25,14 @@ function byCategory(): Map<string, string[]> {
 
 describe("word list size", () => {
   it("has at least 200 entries across at least 15 categories", () => {
-    assert.ok(
-      WORDS.length >= MIN_TOTAL_WORDS,
+    expect(
+      WORDS.length,
       `only ${WORDS.length} entries, need ${MIN_TOTAL_WORDS}`,
-    );
-    assert.ok(
-      CATEGORY_HINTS.length >= MIN_CATEGORIES,
+    ).toBeGreaterThanOrEqual(MIN_TOTAL_WORDS);
+    expect(
+      CATEGORY_HINTS.length,
       `only ${CATEGORY_HINTS.length} categories, need ${MIN_CATEGORIES}`,
-    );
+    ).toBeGreaterThanOrEqual(MIN_CATEGORIES);
   });
 
   it("never drops below eight words in a category", () => {
@@ -41,7 +40,7 @@ describe("word list size", () => {
       .filter(([, words]) => words.length < MIN_WORDS_PER_CATEGORY)
       .map(([category, words]) => `${category} (${words.length})`);
 
-    assert.deepEqual(thin, [], `categories below ${MIN_WORDS_PER_CATEGORY}`);
+    expect(thin, `categories below ${MIN_WORDS_PER_CATEGORY}`).toEqual([]);
   });
 });
 
@@ -51,7 +50,7 @@ describe("harsh matching constraints", () => {
       (word) => word.endsWith("s") && !ALLOWED_S_ENDINGS.has(word),
     );
 
-    assert.deepEqual(plurals, [], "add to ALLOWED_S_ENDINGS only if singular");
+    expect(plurals, "add to ALLOWED_S_ENDINGS only if singular").toEqual([]);
   });
 
   it("has no two entries in a category that normalise the same", () => {
@@ -67,7 +66,7 @@ describe("harsh matching constraints", () => {
       }
     }
 
-    assert.deepEqual(clashes, []);
+    expect(clashes).toEqual([]);
   });
 
   it("has no word in more than one category", () => {
@@ -82,7 +81,7 @@ describe("harsh matching constraints", () => {
       owner.set(key, entry.category);
     }
 
-    assert.deepEqual(clashes, []);
+    expect(clashes).toEqual([]);
   });
 
   it("stores words without articles and already normalised", () => {
@@ -90,7 +89,7 @@ describe("harsh matching constraints", () => {
       (word) => /^(a|an|the) /.test(word) || normaliseWord(word) !== word,
     );
 
-    assert.deepEqual(bad, []);
+    expect(bad).toEqual([]);
   });
 
   // Anything outside plain lowercase letters and single spaces is a guess the
@@ -100,7 +99,7 @@ describe("harsh matching constraints", () => {
       (word) => !/^[a-z]+( [a-z]+)*$/.test(word),
     );
 
-    assert.deepEqual(bad, []);
+    expect(bad).toEqual([]);
   });
 
   it("gives every category an article in its hint", () => {
@@ -108,7 +107,7 @@ describe("harsh matching constraints", () => {
       (hint) => !/^(a|an|the|something) /.test(hint),
     );
 
-    assert.deepEqual(bad, []);
+    expect(bad).toEqual([]);
   });
 });
 
@@ -120,14 +119,14 @@ describe("word selection", () => {
       seen.add(drawWord(deck).word);
     }
 
-    assert.equal(seen.size, WORDS.length);
+    expect(seen.size).toBe(WORDS.length);
   });
 
   // A game longer than the list must keep dealing, not crash or spin.
   it("keeps dealing past the end of the list", () => {
     const deck = createWordDeck(1234);
     for (let i = 0; i < WORDS.length * 3 + 7; i++) {
-      assert.ok(drawWord(deck).word.length > 0);
+      expect(drawWord(deck).word.length).toBeGreaterThan(0);
     }
   });
 
@@ -137,12 +136,11 @@ describe("word selection", () => {
     const drawTen = (deck: ReturnType<typeof createWordDeck>) =>
       Array.from({ length: 10 }, () => drawWord(deck).word).join(",");
 
-    assert.notEqual(drawTen(a), drawTen(b));
+    expect(drawTen(a)).not.toBe(drawTen(b));
   });
 
   it("is reproducible for a given seed", () => {
-    assert.equal(
-      drawWord(createWordDeck(99)).word,
+    expect(drawWord(createWordDeck(99)).word).toBe(
       drawWord(createWordDeck(99)).word,
     );
   });

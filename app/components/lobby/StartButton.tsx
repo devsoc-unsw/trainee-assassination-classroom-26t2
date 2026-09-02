@@ -50,9 +50,11 @@ export function StartButton({
         onClick={handleClick}
         disabled={disabled}
         title={reason ?? undefined}
-        className="start-button rounded-xl bg-white border-2 border-black/10 px-6 py-3 font-bold text-black transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+        className="start-button w-64 animate-boil frame-start-game disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {starting ? "Starting…" : "Start game"}
+        <span className="sr-only">
+          {starting ? "Starting…" : "Start game"}
+        </span>
       </button>
       {reason && <p className="text-xs text-black/60">{reason}</p>}
       {error && <p className="text-xs text-red-600">{error}</p>}

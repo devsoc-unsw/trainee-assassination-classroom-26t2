@@ -39,14 +39,16 @@ export function RoomCodeBadge({ code }: RoomCodeBadgeProps) {
     <button
       type="button"
       onClick={handleCopy}
-      className="room-code-badge flex items-center gap-2 rounded-xl border-2 border-black/10 bg-white/70 px-4 py-2 font-mono text-lg font-bold tracking-widest text-black"
+      className="room-code-badge group frame-room-code flex w-64 flex-col items-center justify-center gap-1 border-0 bg-transparent px-[12%] pt-[20%] pb-[12%] text-black cursor-pointer animate-boil"
     >
-      {code}
+      <span className="font-mono text-xl font-bold tracking-[0.2em] tabular-nums whitespace-nowrap transition-opacity group-hover:opacity-50">
+        {code}
+      </span>
       <span
         aria-live="polite"
         className="font-sans text-xs font-normal text-black/60"
       >
-        {copied ? "Copied!" : "Tap to copy"}
+        {copied ? "Copied!" : ""}
       </span>
     </button>
   );

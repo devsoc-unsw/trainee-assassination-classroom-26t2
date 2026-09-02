@@ -5,7 +5,8 @@ import type {
   ClientToServerEvents,
   ServerToClientEvents,
 } from "../shared/events";
-import type { PlayerId, RoomCode } from "../shared/types";
+import type { PlayerId, Room, RoomCode } from "../shared/types";
+import { createPhaseLoop } from "./phase-loop";
 import {
   canStartGame,
   createRoom,
@@ -14,12 +15,19 @@ import {
   leaveRoom,
   markDisconnected,
   setReady,
-  startRound,
-  toPublicGameState,
   toPublicRoom,
 } from "./rooms";
-import type { Room } from "../shared/types";
+import {
+  advanceTurn,
+  beginDrawing,
+  dropFromTurnOrder,
+  isCurrentDrawer,
+  serialiseStateFor,
+  startRound,
+} from "./state";
+import { clearRoomTimer } from "./timers";
 import { parseIdentity, parseRoomCode, safeAck } from "./validate";
+import { drawWord } from "./word-selection";
 
 interface SocketData {
   playerId?: PlayerId;
@@ -37,7 +45,7 @@ const io = new Server<
   SocketData
 >(httpServer, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: process.env.CLIENT_URL || "http://localhost:3000",
   },
 });
 
@@ -74,8 +82,35 @@ function scheduleRemoval(roomCode: RoomCode, playerId: PlayerId) {
     setTimeout(() => {
       pendingRemovals.delete(key);
       const room = leaveRoom(roomCode, playerId);
-      if (room) {
-        io.to(roomCode).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
+      if (!room) {
+        if (!getRoom(roomCode)) {
+          // Room emptied out while the player was gone. Clear its phase timer.
+          clearRoomTimer(roomCode);
+        }
+        return;
+      }
+
+      io.to(roomCode).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
+
+      // Their turn can have come round again while they were gone, so hand it
+      // on before taking them out of the rotation.
+      let next = room.state;
+      const wasDrawing = isCurrentDrawer(next, playerId);
+      if (wasDrawing) {
+        const advanced = advanceTurn(next);
+        if (advanced.ok) {
+          next = advanced.data;
+        }
+      }
+      next = dropFromTurnOrder(next, playerId);
+
+      if (wasDrawing) {
+        enterPhase(room, next);
+      } else if (next !== room.state) {
+        // Only the rotation changed. Broadcast it, but leave the running timer
+        // alone or the current player would get a second full turn.
+        room.state = next;
+        broadcastState(roomCode, room);
       }
     }, RECONNECT_GRACE_MS),
   );
@@ -97,18 +132,43 @@ function departPreviousRoom(socket: GameSocket, keepCode?: RoomCode) {
 
   if (room) {
     io.to(roomCode).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
+  } else if (!getRoom(roomCode)) {
+    // Last player left: the room is gone. Kill its phase timer so nothing
+    // fires into a dead room.
+    clearRoomTimer(roomCode);
   }
 }
 
-async function emitStateToRoom(room: Room) {
-  const sockets = await io.in(room.code).fetchSockets();
-  for (const target of sockets) {
-    const { playerId } = target.data;
-    if (!playerId) {
-      continue;
-    }
-    target.emit(SERVER_EVENTS.STATE_UPDATED, toPublicGameState(room, playerId));
+function broadcastState(roomCode: RoomCode, room: Room) {
+  const socketIds = io.sockets.adapter.rooms.get(roomCode);
+  if (!socketIds) {
+    return;
   }
+  for (const socketId of socketIds) {
+    const memberSocket = io.sockets.sockets.get(socketId);
+    const playerId = memberSocket?.data.playerId;
+    if (memberSocket && playerId) {
+      memberSocket.emit(
+        SERVER_EVENTS.STATE_UPDATED,
+        serialiseStateFor(playerId, room),
+      );
+    }
+  }
+}
+
+// T09: the phase loop drives timed transitions. See server/phase-loop.ts.
+const { enterPhase } = createPhaseLoop({
+  getRoom,
+  broadcast: (room) => broadcastState(room.code, room),
+});
+
+function shuffled<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
 }
 
 io.on("connection", (socket) => {
@@ -204,11 +264,77 @@ io.on("connection", (socket) => {
       return;
     }
 
-    startRound(room);
+    // Pick imposter and turn order randomly.
+    const turnOrder = shuffled(room.players.map((player) => player.id));
+    const imposterId = turnOrder[0];
+    const entry = drawWord(room.deck);
+
+    const started = startRound(room.state, {
+      roundNumber: room.state.roundNumber + 1,
+      turnOrder,
+      imposterId,
+      word: entry.word,
+      category: entry.category,
+    });
+    if (!started.ok) {
+      console.warn(
+        `[room ${roomCode}] start_game rejected: ${started.message}`,
+      );
+      ack({ ok: false, code: started.code, message: started.message });
+      return;
+    }
+
+    const drawing = beginDrawing(started.data);
+    if (!drawing.ok) {
+      console.warn(
+        `[room ${roomCode}] begin_drawing rejected after start_round: ${drawing.message}`,
+      );
+      ack({ ok: false, code: drawing.code, message: drawing.message });
+      return;
+    }
     ack({ ok: true, data: undefined });
-    emitStateToRoom(room).catch((error) =>
-      console.error(`failed to emit round start for ${roomCode}:`, error),
-    );
+    // enterPhase arms the DRAWING timer and broadcasts the state.
+    enterPhase(room, drawing.data);
+  });
+
+  socket.on(CLIENT_EVENTS.STROKE_END, () => {
+    const { playerId, roomCode } = socket.data;
+    if (!playerId || !roomCode) {
+      return;
+    }
+
+    const room = getRoom(roomCode);
+    if (!room) {
+      return;
+    }
+
+    if (!isCurrentDrawer(room.state, playerId)) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "NOT_YOUR_TURN",
+        message: "It is not your turn to draw.",
+      });
+      return;
+    }
+
+    // Finishing a stroke ends the turn early. The stroke itself is not kept
+    // yet - that belongs to the stroke relay, which will record the payload
+    // here before handing the turn on.
+    const advanced = advanceTurn(room.state);
+    if (!advanced.ok) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: advanced.code,
+        message: advanced.message,
+      });
+      return;
+    }
+    // enterPhase arms the next turn's timer and broadcasts.
+    enterPhase(room, advanced.data);
+  });
+
+  socket.on(CLIENT_EVENTS.TIME_SYNC, (ack) => {
+    if (typeof ack === "function") {
+      ack(Date.now());
+    }
   });
 
   socket.on("disconnect", () => {
@@ -221,6 +347,15 @@ io.on("connection", (socket) => {
     const room = markDisconnected(roomCode, playerId);
     if (room) {
       io.to(roomCode).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
+
+      // Someone who is gone cannot draw, so hand the turn on now. The
+      // reconnect grace protects their seat in the room, not their turn.
+      if (isCurrentDrawer(room.state, playerId)) {
+        const advanced = advanceTurn(room.state);
+        if (advanced.ok) {
+          enterPhase(room, advanced.data);
+        }
+      }
     }
     scheduleRemoval(roomCode, playerId);
   });
