@@ -8,7 +8,8 @@
     "dev:server": "tsx watch server/index.ts",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "tsx --test server/**/*.test.ts"
   },
   "dependencies": {
     "next": "16.2.10",
