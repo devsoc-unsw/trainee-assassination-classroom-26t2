@@ -22,6 +22,7 @@ import {
   beginDrawing,
   dropFromTurnOrder,
   isCurrentDrawer,
+  pickImposter,
   serialiseStateFor,
   startRound,
 } from "./state";
@@ -266,7 +267,7 @@ io.on("connection", (socket) => {
 
     // Pick imposter and turn order randomly.
     const turnOrder = shuffled(room.players.map((player) => player.id));
-    const imposterId = turnOrder[0];
+    const imposterId = pickImposter(turnOrder, room.state.imposterId);
     const entry = drawWord(room.deck);
 
     const started = startRound(room.state, {

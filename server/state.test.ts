@@ -10,6 +10,7 @@ import {
   endGame,
   endRoundReveal,
   isCurrentDrawer,
+  pickImposter,
   resolveRoundWinner,
   serialiseStateFor,
   startRound,
@@ -439,5 +440,40 @@ describe("serialiseStateFor", () => {
       const view = serialiseStateFor(PLAYERS[0], roomWith(stateAt(phase)));
       expect(view.phase).toBe(phase);
     }
+  });
+});
+
+describe("pickImposter", () => {
+  it("never repeats the previous imposter when another player exists", () => {
+    const players = ["p1", "p2", "p3", "p4", "p5"];
+    let previous: string | null = null;
+    for (let i = 0; i < 200; i++) {
+      const picked = pickImposter(players, previous);
+      if (previous !== null) {
+        expect(picked).not.toBe(previous);
+      }
+      previous = picked;
+    }
+  });
+
+  it("distributes picks within a reasonable margin of even over many rounds", () => {
+    const players = ["p1", "p2", "p3", "p4", "p5"];
+    const rounds = 1000;
+    const counts: Record<string, number> = {};
+    let previous: string | null = null;
+    for (let i = 0; i < rounds; i++) {
+      const picked = pickImposter(players, previous);
+      counts[picked] = (counts[picked] ?? 0) + 1;
+      previous = picked;
+    }
+    const expected = rounds / players.length;
+    for (const player of players) {
+      expect(counts[player]).toBeGreaterThan(expected * 0.75);
+      expect(counts[player]).toBeLessThan(expected * 1.25);
+    }
+  });
+
+  it("falls back to the only player when there is just one", () => {
+    expect(pickImposter(["p1"], "p1")).toBe("p1");
   });
 });

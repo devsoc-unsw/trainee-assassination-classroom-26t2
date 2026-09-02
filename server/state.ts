@@ -97,6 +97,21 @@ export function startRound(
   );
 }
 
+// Picks who's gonna be the imposter this round. 
+// Avoids repeating the same player two rounds in a row
+export function pickImposter(
+  playerIds: PlayerId[],
+  previousImposterId: PlayerId | null,
+): PlayerId {
+  let eligible: PlayerId[];
+  if (playerIds.length > 1) {
+    eligible = playerIds.filter((id) => id !== previousImposterId);
+  } else {
+    eligible = playerIds;
+  }
+  return eligible[Math.floor(Math.random() * eligible.length)];
+}
+
 // ROUND_STARTING -> DRAWING
 export function beginDrawing(state: GameState): Result<GameState> {
   return commitTransition(
