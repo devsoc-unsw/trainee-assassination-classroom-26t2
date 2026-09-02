@@ -20,7 +20,10 @@ import {
 
 const PLAYERS = ["alice", "bob", "carol", "dave"];
 
-function stateAt(phase: GameState["phase"], overrides: Partial<GameState> = {}): GameState {
+function stateAt(
+  phase: GameState["phase"],
+  overrides: Partial<GameState> = {},
+): GameState {
   return {
     ...createInitialGameState(),
     phase,
