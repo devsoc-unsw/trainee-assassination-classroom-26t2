@@ -5,10 +5,13 @@ import {
   type GameState,
   type Player,
   type PlayerId,
+  type PlayerSecret,
+  type PublicGameState,
   type PublicRoom,
   type Room,
   type RoomCode,
 } from "@/shared/types";
+import { createWordDeck, drawWord } from "./word-selection";
 
 const PLAYER_COLOURS = [
   "#e6194b", // red
@@ -74,6 +77,38 @@ export function toPublicRoom(room: Room): PublicRoom {
   };
 }
 
+// The imposter branch must never carry `word`, and the group branch must never
+// carry `isImposter`.
+export function secretFor(room: Room, playerId: PlayerId): PlayerSecret {
+  const { imposterId, category, word } = room.state;
+  return imposterId === playerId
+    ? { isImposter: true, category }
+    : { category, word };
+}
+
+export function toPublicGameState(
+  room: Room,
+  playerId: PlayerId,
+): PublicGameState {
+  const state = room.state;
+  return {
+    phase: state.phase,
+    roundNumber: state.roundNumber,
+    pass: state.pass,
+    turnIndex: state.turnIndex,
+    turnOrder: [...state.turnOrder],
+    strokes: [...state.strokes],
+    accusedId: state.accusedId,
+    phaseEndsAt: state.phaseEndsAt,
+    scores: state.scores,
+    voteCount: state.votes.length,
+    secret: secretFor(room, playerId),
+    // TODO(T-20): populate once ROUND_REVEAL scoring exists. Until then no
+    // phase reveals the word.
+    reveal: null,
+  };
+}
+
 export function createRoom(hostId: PlayerId, nickname: string): Room {
   const code = generateUniqueCode();
   const host: Player = {
@@ -88,9 +123,14 @@ export function createRoom(hostId: PlayerId, nickname: string): Room {
     hostId,
     players: [host],
     state: createInitialGameState(),
+    deck: createWordDeck(),
   };
   rooms.set(code, room);
   return room;
+}
+
+export function getRoom(code: RoomCode): Room | null {
+  return rooms.get(normaliseCode(code)) ?? null;
 }
 
 export function joinRoom(
@@ -223,7 +263,33 @@ export function canStartGame(
   return { ok: true, data: undefined };
 }
 
-export function markDisconnected(code: RoomCode, playerId: PlayerId): Room | null {
+// Draws this round's word from the room's own deck. Imposter and turn order
+// are picked here too because a round cannot start without them; if a later
+// ticket owns that choice, this is the seam to replace.
+export function startRound(room: Room): void {
+  const entry = drawWord(room.deck);
+  const turnOrder = [...room.players.map((player) => player.id)];
+  for (let i = turnOrder.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [turnOrder[i], turnOrder[j]] = [turnOrder[j], turnOrder[i]];
+  }
+
+  room.state = {
+    ...createInitialGameState(),
+    scores: room.state.scores,
+    roundNumber: room.state.roundNumber + 1,
+    phase: "ROUND_STARTING",
+    turnOrder,
+    word: entry.word,
+    category: entry.category,
+    imposterId: turnOrder[Math.floor(Math.random() * turnOrder.length)],
+  };
+}
+
+export function markDisconnected(
+  code: RoomCode,
+  playerId: PlayerId,
+): Room | null {
   const roomCode = normaliseCode(code);
   const room = rooms.get(roomCode);
   if (!room) {
