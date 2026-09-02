@@ -1,7 +1,7 @@
 'use client';
 
 import { AppSocket } from "@/app/socket-provider";
-import { PlayerId, PublicRoom } from "@/shared/types";
+import { CANVAS_HEIGHT, CANVAS_WIDTH, PlayerId, PublicRoom, Point } from "@/shared/types";
 
 let ctx: null | CanvasRenderingContext2D = null;
 
@@ -35,6 +35,10 @@ function startDraw(component: HTMLCanvasElement, xpos: number, ypos: number, roo
         fracx * component.width,
         fracy * component.height
     );
+
+    const point: Point = {x: fracx * CANVAS_WIDTH, y: fracy * CANVAS_HEIGHT};
+
+    socket.emit("stroke_start", {point: point});
 }
 
 function continueDraw(component: HTMLCanvasElement, xpos: number, ypos: number, room: PublicRoom, playerId: PlayerId, socket: AppSocket) {
@@ -42,11 +46,17 @@ function continueDraw(component: HTMLCanvasElement, xpos: number, ypos: number, 
         return
     }
     const rect = component.getBoundingClientRect();
+    const fracx = (xpos - rect.left) / (rect.right - rect.left)
+    const fracy = (ypos - rect.top) / (rect.bottom - rect.top)
     ctx.lineTo(
-        (xpos - rect.left) / (rect.right - rect.left) * component.width,
-        (ypos - rect.top) / (rect.bottom - rect.top) * component.height
+        fracx * component.width,
+        fracy * component.height
     );
     ctx.stroke();
+
+    const point: Point = {x: fracx * CANVAS_WIDTH, y: fracy * CANVAS_HEIGHT};
+
+    socket.emit("stroke_point", {points: [point]});
 }
 
 function finishDraw(component: HTMLCanvasElement, xpos: number, ypos: number, room: PublicRoom, playerId: PlayerId, socket: AppSocket) {
@@ -54,13 +64,18 @@ function finishDraw(component: HTMLCanvasElement, xpos: number, ypos: number, ro
         return
     }
     const rect = component.getBoundingClientRect();
+    const fracx = (xpos - rect.left) / (rect.right - rect.left)
+    const fracy = (ypos - rect.top) / (rect.bottom - rect.top)
     ctx.lineTo(
-        (xpos - rect.left) / (rect.right - rect.left) * component.width,
-        (ypos - rect.top) / (rect.bottom - rect.top) * component.height
+        fracx * component.width,
+        fracy * component.height
     );
     ctx.stroke();
-
     
+
+    const point: Point = {x: fracx * CANVAS_WIDTH, y: fracy * CANVAS_HEIGHT};
+
+    socket.emit("stroke_end", {points: [point]});
 
     ctx = null;
 }

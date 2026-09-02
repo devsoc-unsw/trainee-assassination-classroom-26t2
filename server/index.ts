@@ -5,7 +5,7 @@ import type {
   ClientToServerEvents,
   ServerToClientEvents,
 } from "../shared/events";
-import type { PlayerId, Room, RoomCode } from "../shared/types";
+import type { PlayerId, Point, Room, RoomCode, Stroke } from "../shared/types";
 import {
   canStartGame,
   createRoom,
@@ -244,6 +244,23 @@ io.on("connection", (socket) => {
     ack({ ok: true, data: undefined });
     broadcastState(roomCode, room);
   });
+
+  socket.on(CLIENT_EVENTS.STROKE_START,(payload)=>{
+    const room = getRoom(roomCode);
+    const stroke: Stroke = {id: string,
+  playerId: PlayerId,
+  colour: string,
+  points: [point],}
+    room?.state.strokes.push(stroke)
+  })
+
+  socket.on(CLIENT_EVENTS.STROKE_POINT,(rawAck)=>{
+    const ack = safeAck<{points: Point[]}>(rawAck);
+  })
+
+  socket.on(CLIENT_EVENTS.STROKE_END,(rawAck)=>{
+    const ack = safeAck<{points: Point[]}>(rawAck);
+  })
 
   socket.on("disconnect", () => {
     console.log(`client disconnected: ${socket.id}`);

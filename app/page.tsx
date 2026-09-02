@@ -1,4 +1,4 @@
-import { Canvas } from "./components/lobby/Canvas";
+import { Canvas } from "./components/game/Canvas";
 import { Lobby } from "./lobby";
 
 export default function Home() {
