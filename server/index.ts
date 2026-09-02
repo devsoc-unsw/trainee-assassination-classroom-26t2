@@ -9,12 +9,16 @@ import type { PlayerId, RoomCode } from "../shared/types";
 import {
   canStartGame,
   createRoom,
+  getRoom,
   joinRoom,
   leaveRoom,
   markDisconnected,
   setReady,
+  startRound,
+  toPublicGameState,
   toPublicRoom,
 } from "./rooms";
+import type { Room } from "../shared/types";
 import { parseIdentity, parseRoomCode, safeAck } from "./validate";
 
 interface SocketData {
@@ -93,6 +97,17 @@ function departPreviousRoom(socket: GameSocket, keepCode?: RoomCode) {
 
   if (room) {
     io.to(roomCode).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
+  }
+}
+
+async function emitStateToRoom(room: Room) {
+  const sockets = await io.in(room.code).fetchSockets();
+  for (const target of sockets) {
+    const { playerId } = target.data;
+    if (!playerId) {
+      continue;
+    }
+    target.emit(SERVER_EVENTS.STATE_UPDATED, toPublicGameState(room, playerId));
   }
 }
 
@@ -183,10 +198,17 @@ io.on("connection", (socket) => {
       return;
     }
 
-    // TODO(T-next): trigger round init (imposter/word assignment, turn order)
-    // and broadcast STATE_UPDATED once round-start logic exists. This handler
-    // intentionally stops at validation for T06.
+    const room = getRoom(roomCode);
+    if (!room) {
+      ack({ ok: false, code: "ROOM_NOT_FOUND", message: "Not in a room." });
+      return;
+    }
+
+    startRound(room);
     ack({ ok: true, data: undefined });
+    emitStateToRoom(room).catch((error) =>
+      console.error(`failed to emit round start for ${roomCode}:`, error),
+    );
   });
 
   socket.on("disconnect", () => {
