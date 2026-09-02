@@ -14,6 +14,7 @@ import {
   subscribe,
 } from "./lib/identity";
 import { useSocket } from "./socket-provider";
+import { Canvas } from "./components/game/Canvas";
 
 export function Lobby() {
   const socket = useSocket();

@@ -3,6 +3,10 @@ import { Game } from "./game";
 import { Lobby } from "./lobby";
 
 export default function Home() {
+  // TODO: idk what goes here
+  if (1==1) {
+    <Game></Game>
+  } else {
   return (
     <div className="relative flex flex-1 flex-col items-center overflow-hidden font-sans">
       <div
@@ -16,4 +20,5 @@ export default function Home() {
       <Lobby />
     </div>
   );
+  }
 }
