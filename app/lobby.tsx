@@ -14,7 +14,6 @@ import {
   subscribe,
 } from "./lib/identity";
 import { useSocket } from "./socket-provider";
-import { Canvas } from "./components/game/Canvas";
 
 export function Lobby() {
   const socket = useSocket();
@@ -67,7 +66,7 @@ export function Lobby() {
         setError(result.message);
         return;
       }
-      setStoredSession({ nickname, roomCode: result.data.code });
+      setStoredSession({ nickname, roomCode: result.data.code, phase: "LOBBY" });
     });
   }
 
@@ -81,7 +80,7 @@ export function Lobby() {
           setError(result.message);
           return;
         }
-        setStoredSession({ nickname, roomCode: result.data.code });
+        setStoredSession({ nickname, roomCode: result.data.code, phase: "LOBBY" });
       },
     );
   }

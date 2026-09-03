@@ -1,9 +1,12 @@
+import { Phase } from "@/shared/types";
+
 const PLAYER_ID_KEY = "ac:playerId";
 const SESSION_KEY = "ac:session";
 
 export interface StoredSession {
   nickname: string;
   roomCode: string;
+  phase: Phase;
 }
 
 export function getPlayerId(): string {

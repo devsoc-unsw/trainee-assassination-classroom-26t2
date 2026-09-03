@@ -77,6 +77,10 @@ export function Game() {
         );
     }
 
+    console.log(storedSession);
+    console.log(room);
+    console.log(error);
+
     const attemptingRejoin =
         storedSession !== null && room === null && error === null;
     if (attemptingRejoin) {

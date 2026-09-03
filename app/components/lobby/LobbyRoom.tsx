@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import type { AppSocket } from "@/app/socket-provider";
 import { CLIENT_EVENTS } from "@/shared/events";
 import type { Result } from "@/shared/events";
@@ -11,6 +11,7 @@ import { PlayerCard } from "./PlayerCard";
 import { PlayerTally } from "./PlayerTally";
 import { RoomCodeBadge } from "./RoomCodeBadge";
 import { StartButton } from "./StartButton";
+import { getSessionSnapshot, setStoredSession, subscribe } from "@/app/lib/identity";
 
 interface LobbyRoomProps {
   room: PublicRoom;
@@ -20,6 +21,12 @@ interface LobbyRoomProps {
 
 export function LobbyRoom({ room, playerId, socket }: LobbyRoomProps) {
   const [customizeOpen, setCustomizeOpen] = useState(false);
+
+  const storedSession = useSyncExternalStore(
+      subscribe,
+      getSessionSnapshot,
+      () => null,
+    );
 
   const isHost = room.hostId === playerId;
   const me = room.players.find((player) => player.id === playerId);
@@ -31,6 +38,12 @@ export function LobbyRoom({ room, playerId, socket }: LobbyRoomProps) {
 
   function handleStart(): Promise<Result<void>> {
     return new Promise((resolve) => {
+      const nickname = storedSession?.nickname;
+      const code = storedSession?.roomCode;
+      if (nickname == null || code == null) {
+        return
+      }
+      setStoredSession({ nickname, roomCode: code, phase: "DRAWING" });//TODO: Update this
       socket.emit(CLIENT_EVENTS.START_GAME, resolve);
     });
   }
