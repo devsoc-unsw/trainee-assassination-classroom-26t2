@@ -19,6 +19,7 @@
 import type { Result } from "@/shared/events";
 import type {
   GameState,
+  ImposterGuess,
   Phase,
   PlayerId,
   PlayerSecret,
@@ -305,6 +306,33 @@ export function settleVoting(state: GameState): Result<GameState> {
   return accusedId !== null && accusedId === state.imposterId
     ? toFinalGuess(state, accusedId)
     : toRoundRevealFromVoting(state, accusedId);
+}
+
+// T29: imposter's one shot at the word.
+export function submitGuess(
+  state: GameState,
+  guesserId: PlayerId,
+  text: string,
+): Result<GameState> {
+  const guard = assertPhase(state, ["FINAL_GUESS"], "submit_guess");
+  if (!guard.ok) {
+    return guard;
+  }
+  if (guesserId !== state.imposterId) {
+    console.warn(
+      `[state] rejected "submit_guess": ${guesserId} is not the imposter`,
+    );
+    return {
+      ok: false,
+      code: "NOT_IMPOSTER",
+      message: "Only the imposter can make the final guess.",
+    };
+  }
+  const finalGuess: ImposterGuess = {
+    text: normaliseGuess(text),
+    submittedAt: Date.now(),
+  };
+  return { ok: true, data: { ...state, finalGuess } };
 }
 
 // FINAL_GUESS -> ROUND_REVEAL
