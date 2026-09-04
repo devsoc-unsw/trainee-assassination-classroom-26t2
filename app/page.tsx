@@ -3,7 +3,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Game } from "./game";
 import { Lobby } from "./lobby";
-import { getSessionSnapshot, subscribe } from "./lib/identity";
+import { getPlayerId, getSessionSnapshot, subscribe } from "./lib/identity";
 import { SERVER_EVENTS } from "@/shared/events";
 import { PublicGameState, PublicRoom } from "@/shared/types";
 import { useSocket } from "./socket-provider";
@@ -15,9 +15,20 @@ export default function Home() {
     () => null,
   );
 
+  const playerId = useSyncExternalStore(subscribe, getPlayerId, () => "");
+
   const socket = useSocket();
 
   const [gameState, setGameState] = useState<PublicGameState | null>(null);
+  const [room, setRoom] = useState<PublicRoom | null>(null);
+
+  useEffect(() => {
+    const handleRoomUpdated = (publicRoom: PublicRoom) => setRoom(publicRoom);
+    socket.on(SERVER_EVENTS.ROOM_UPDATED, handleRoomUpdated);
+    return () => {
+      socket.off(SERVER_EVENTS.ROOM_UPDATED, handleRoomUpdated);
+    };
+  }, [socket]);
 
   useEffect(() => {
     const handleStateUpdated = (state: PublicGameState) => setGameState(state);
@@ -27,10 +38,27 @@ export default function Home() {
     };
   }, [socket]);
 
-  console.log(storedSession);
-  console.log(storedSession?.phase);
+  if (playerId === "") {
+    return (
+      <main className="flex flex-1 items-center justify-center">
+        <p>Loading…</p>
+      </main>
+    );
+  }
 
-  if (gameState == null || gameState.phase == "LOBBY") {
+  //TODO: Work out what to do about this
+  const attemptingRejoin =
+    storedSession !== null && room === null //&& error === null;
+  if (attemptingRejoin) {
+    return (
+      <main className="flex flex-1 items-center justify-center">
+        <p>Rejoining room {storedSession.roomCode}…</p>
+      </main>
+    );
+  }
+
+
+  if (room==null || gameState == null || gameState.phase == "LOBBY") {
     return (
       <div className="relative flex flex-1 flex-col items-center overflow-hidden font-sans">
         <div
@@ -41,10 +69,10 @@ export default function Home() {
             transform: "scale(1.75)",
           }}
         />
-        <Lobby />
+        <Lobby room={room} />
       </div>
     );
   } else {
-    return <Game />
+    return <Game room={room} gameState={gameState} />
   }
 }

@@ -15,7 +15,11 @@ import {
 } from "./lib/identity";
 import { useSocket } from "./socket-provider";
 
-export function Lobby() {
+interface LobbyProps {
+  room: PublicRoom | null;
+}
+
+export function Lobby({ room }: LobbyProps) {
   const socket = useSocket();
   const playerId = useSyncExternalStore(subscribe, getPlayerId, () => "");
   const storedSession = useSyncExternalStore(
@@ -26,7 +30,6 @@ export function Lobby() {
 
   const [nickname, setNickname] = useState("");
   const [roomCode, setRoomCode] = useState("");
-  const [room, setRoom] = useState<PublicRoom | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -51,13 +54,6 @@ export function Lobby() {
     );
   }, [socket, playerId, storedSession]);
 
-  useEffect(() => {
-    const handleRoomUpdated = (publicRoom: PublicRoom) => setRoom(publicRoom);
-    socket.on(SERVER_EVENTS.ROOM_UPDATED, handleRoomUpdated);
-    return () => {
-      socket.off(SERVER_EVENTS.ROOM_UPDATED, handleRoomUpdated);
-    };
-  }, [socket]);
 
   function handleCreate() {
     setError(null);
@@ -82,14 +78,6 @@ export function Lobby() {
         }
         setStoredSession({ nickname, roomCode: result.data.code, phase: "LOBBY" });
       },
-    );
-  }
-
-  if (playerId === "") {
-    return (
-      <main className="flex flex-1 items-center justify-center">
-        <p>Loading…</p>
-      </main>
     );
   }
 

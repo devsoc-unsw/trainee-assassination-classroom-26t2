@@ -29,6 +29,7 @@ import {
 import { clearRoomTimer } from "./timers";
 import { parseIdentity, parseRoomCode, safeAck } from "./validate";
 import { drawWord } from "./word-selection";
+import { randomUUID } from "crypto";
 
 interface SocketData {
   playerId?: PlayerId;
@@ -361,7 +362,7 @@ io.on("connection", (socket) => {
     }
 
     const stroke: Stroke = {
-      id: "IDK", //TODO: Work out what this is for
+      id: randomUUID(),
       playerId: playerId,
       colour: colour,
       points: [payload.point],
