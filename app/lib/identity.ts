@@ -1,5 +1,3 @@
-import { Phase } from "@/shared/types";
-
 const PLAYER_ID_KEY = "ac:playerId";
 const SESSION_KEY = "ac:session";
 
@@ -8,7 +6,6 @@ const listeners = new Set<() => void>();
 export interface StoredSession {
   nickname: string;
   roomCode: string;
-  phase: Phase;
 }
 
 export function getPlayerId(): string {
@@ -67,5 +64,7 @@ export function subscribe(listener: () => void) {
 }
 
 function emitChange() {
-  for (const l of listeners) l();
+  for (const listener of listeners) {
+    listener();
+  }
 }
