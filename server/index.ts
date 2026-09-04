@@ -13,6 +13,14 @@ import type {
   Stroke,
   Phase,
 } from "../shared/types";
+import type {
+  PlayerId,
+  Point,
+  Room,
+  RoomCode,
+  Stroke,
+  Phase,
+} from "../shared/types";
 import { createPhaseLoop } from "./phase-loop";
 import {
   canStartGame,
@@ -318,6 +326,10 @@ io.on("connection", (socket) => {
 
     const room = getRoom(roomCode);
     if (!room) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "ROOM_NOT_FOUND",
+        message: "Could not locate room.",
+      });
       return;
     }
 
@@ -332,6 +344,10 @@ io.on("connection", (socket) => {
     const stroke = room.state.strokes.at(-1);
 
     if (stroke?.playerId !== playerId) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "NOT_YOUR_TURN",
+        message: "It is not your turn to draw.",
+      });
       return;
     }
 
@@ -444,8 +460,10 @@ io.on("connection", (socket) => {
   socket.on(CLIENT_EVENTS.STROKE_START, (payload) => {
     const { playerId, roomCode } = socket.data;
     if (roomCode == null) {
-      //TODO: Find out whether this is correct
-      // ack({ ok: false, code: "ROOM_NOT_FOUND", message: "Not in a room." });
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "ROOM_NOT_FOUND",
+        message: "Not in a room.",
+      });
       return;
     }
     const room = getRoom(roomCode);
@@ -453,7 +471,10 @@ io.on("connection", (socket) => {
     const colour = room?.players.find((x) => x.id == playerId)?.colour;
 
     if (playerId == null || colour == null || room == null) {
-      // ack({ ok: false, code: "ROOM_NOT_FOUND", message: "Not in a room." });
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "ROOM_NOT_FOUND",
+        message: "Not in a room.",
+      });
       return;
     }
 
@@ -461,7 +482,10 @@ io.on("connection", (socket) => {
       room?.state.turnOrder[room?.state.turnIndex] != playerId ||
       room?.state.phase !== "DRAWING"
     ) {
-      // ack({ ok: false, code: "NOT_YOUR_TURN", message: "Not your turn." });
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "NOT_YOUR_TURN",
+        message: "Not your turn.",
+      });
       return;
     }
 
@@ -478,7 +502,10 @@ io.on("connection", (socket) => {
   socket.on(CLIENT_EVENTS.STROKE_POINT, (payload) => {
     const { playerId, roomCode } = socket.data;
     if (roomCode == null) {
-      // ack({ ok: false, code: "ROOM_NOT_FOUND", message: "Not in a room." });
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "ROOM_NOT_FOUND",
+        message: "Not in a room.",
+      });
       return;
     }
     const room = getRoom(roomCode);
@@ -486,7 +513,10 @@ io.on("connection", (socket) => {
     const colour = room?.players.find((x) => x.id == playerId)?.colour;
 
     if (playerId == null || colour == null || room == null) {
-      // ack({ ok: false, code: "ROOM_NOT_FOUND", message: "Not in a room." });
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "ROOM_NOT_FOUND",
+        message: "Not in a room.",
+      });
       return;
     }
 
@@ -494,7 +524,10 @@ io.on("connection", (socket) => {
       room?.state.turnOrder[room?.state.turnIndex] != playerId ||
       room?.state.phase !== "DRAWING"
     ) {
-      // ack({ ok: false, code: "NOT_YOUR_TURN", message: "Not your turn." });
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "NOT_YOUR_TURN",
+        message: "Not your turn.",
+      });
       return;
     }
 
