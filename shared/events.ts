@@ -35,6 +35,8 @@ export type ErrorCode =
   | "NICKNAME_TAKEN"
   | "INVALID_NICKNAME"
   | "NOT_YOUR_TURN"
+  | "SELF_VOTE"
+  | "INVALID_VOTE_TARGET"
   | "WRONG_PHASE"
   | "INVALID_PAYLOAD"
   | "NOT_HOST"

@@ -20,11 +20,14 @@ import {
 } from "./rooms";
 import {
   advanceTurn,
+  allConnectedVoted,
   beginDrawing,
+  castVote,
   dropFromTurnOrder,
   isCurrentDrawer,
   pickImposter,
   serialiseStateFor,
+  settleVoting,
   startRound,
 } from "./state";
 import { clearRoomTimer } from "./timers";
@@ -332,6 +335,53 @@ io.on("connection", (socket) => {
     }
     // enterPhase arms the next turn's timer and broadcasts.
     enterPhase(room, advanced.data);
+  });
+
+  socket.on(CLIENT_EVENTS.CAST_VOTE, (payload) => {
+    const { playerId, roomCode } = socket.data;
+    if (!playerId || !roomCode) {
+      return;
+    }
+    const targetId = payload?.targetId;
+    if (typeof targetId !== "string" || targetId.length === 0) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "INVALID_PAYLOAD",
+        message: "cast_vote needs a targetId.",
+      });
+      return;
+    }
+
+    const room = getRoom(roomCode);
+    if (!room) {
+      return;
+    }
+
+    const connectedIds = room.players
+      .filter((player) => player.connected)
+      .map((player) => player.id);
+
+    const voted = castVote(room.state, playerId, targetId, connectedIds);
+    if (!voted.ok) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: voted.code,
+        message: voted.message,
+      });
+      return;
+    }
+
+    room.state = voted.data;
+    broadcastState(roomCode, room);
+
+    if (allConnectedVoted(room.state.votes, connectedIds)) {
+      const settled = settleVoting(room.state);
+      if (settled.ok) {
+        enterPhase(room, settled.data);
+      } else {
+        console.warn(
+          `[room ${roomCode}] settleVoting rejected on early exit: ${settled.message}`,
+        );
+      }
+    }
   });
 
   socket.on(CLIENT_EVENTS.TIME_SYNC, (ack) => {

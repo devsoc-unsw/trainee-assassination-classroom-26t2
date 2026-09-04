@@ -100,7 +100,7 @@ export interface PublicGameState {
   accusedId: PlayerId | null;
   phaseEndsAt: number | null;
   scores: Scores;
-  voteCount: number;
+  votedPlayerIds: PlayerId[];
   secret: PlayerSecret;
   reveal: RoundReveal | null;
 }

@@ -153,6 +153,42 @@ describe("phase loop", () => {
       expect(room.state.accusedId).toBeNull();
     });
 
+    it("VOTING timeout runs the real tally: a non-imposter plurality -> ROUND_REVEAL accused", () => {
+      const room = roomAt("VOTING", {
+        votes: [
+          { voterId: PLAYERS[0], targetId: PLAYERS[2] },
+          { voterId: PLAYERS[1], targetId: PLAYERS[2] },
+          { voterId: PLAYERS[3], targetId: PLAYERS[0] },
+        ],
+      });
+      const { loop } = setup(room);
+      loop.enterPhase(room, room.state);
+
+      vi.advanceTimersByTime(PHASE_DURATIONS_MS.VOTING);
+
+      expect(room.state.phase).toBe("ROUND_REVEAL");
+      expect(room.state.accusedId).toBe(PLAYERS[2]);
+    });
+
+    it("VOTING timeout runs the real tally: an imposter plurality -> FINAL_GUESS", () => {
+      const room = roomAt("VOTING", {
+        votes: [
+          { voterId: PLAYERS[0], targetId: PLAYERS[1] },
+          { voterId: PLAYERS[2], targetId: PLAYERS[1] },
+        ],
+      });
+      const { loop } = setup(room);
+      loop.enterPhase(room, room.state);
+
+      vi.advanceTimersByTime(PHASE_DURATIONS_MS.VOTING);
+
+      expect(room.state.phase).toBe("FINAL_GUESS");
+      expect(room.state.accusedId).toBe(PLAYERS[1]);
+      expect(room.state.phaseEndsAt).toBe(
+        Date.now() + PHASE_DURATIONS_MS.FINAL_GUESS,
+      );
+    });
+
     it("FINAL_GUESS -> ROUND_REVEAL when no guess is submitted", () => {
       const room = roomAt("FINAL_GUESS", { accusedId: PLAYERS[1] });
       const { loop } = setup(room);
