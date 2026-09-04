@@ -46,9 +46,6 @@ export default function Home() {
     );
   }
 
-  
-
-
   if (room==null || gameState == null || gameState.phase == "LOBBY") {
     return (
       <div className="relative flex flex-1 flex-col items-center overflow-hidden font-sans">
