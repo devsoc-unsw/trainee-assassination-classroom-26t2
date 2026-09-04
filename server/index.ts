@@ -19,11 +19,17 @@ import {
 } from "./rooms";
 import {
   advanceTurn,
+  allConnectedVoted,
   beginDrawing,
+  castVote,
   dropFromTurnOrder,
   isCurrentDrawer,
+  pickImposter,
   serialiseStateFor,
+  settleVoting,
   startRound,
+  submitGuess,
+  toRoundRevealFromFinalGuess,
 } from "./state";
 import { clearRoomTimer } from "./timers";
 import { parseIdentity, parseRoomCode, safeAck } from "./validate";
@@ -56,9 +62,6 @@ type GameSocket = Socket<
   SocketData
 >;
 
-// A refreshing browser disconnects and reconnects within moments. Removing
-// the player immediately would delete the room out from under a solo host
-// before the reconnect lands, so give them a window to come back first.
 const RECONNECT_GRACE_MS = 10_000;
 const pendingRemovals = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -266,7 +269,7 @@ io.on("connection", (socket) => {
 
     // Pick imposter and turn order randomly.
     const turnOrder = shuffled(room.players.map((player) => player.id));
-    const imposterId = turnOrder[0];
+    const imposterId = pickImposter(turnOrder, room.state.imposterId);
     const entry = drawWord(room.deck);
 
     const started = startRound(room.state, {
@@ -316,9 +319,7 @@ io.on("connection", (socket) => {
       return;
     }
 
-    // Finishing a stroke ends the turn early. The stroke itself is not kept
-    // yet - that belongs to the stroke relay, which will record the payload
-    // here before handing the turn on.
+    // Finishing a stroke ends the turn early.
     const advanced = advanceTurn(room.state);
     if (!advanced.ok) {
       socket.emit(SERVER_EVENTS.ERROR, {
@@ -329,6 +330,91 @@ io.on("connection", (socket) => {
     }
     // enterPhase arms the next turn's timer and broadcasts.
     enterPhase(room, advanced.data);
+  });
+
+  socket.on(CLIENT_EVENTS.CAST_VOTE, (payload) => {
+    const { playerId, roomCode } = socket.data;
+    if (!playerId || !roomCode) {
+      return;
+    }
+    const targetId = payload?.targetId;
+    if (typeof targetId !== "string" || targetId.length === 0) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "INVALID_PAYLOAD",
+        message: "cast_vote needs a targetId.",
+      });
+      return;
+    }
+
+    const room = getRoom(roomCode);
+    if (!room) {
+      return;
+    }
+
+    const connectedIds = room.players
+      .filter((player) => player.connected)
+      .map((player) => player.id);
+
+    const voted = castVote(room.state, playerId, targetId, connectedIds);
+    if (!voted.ok) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: voted.code,
+        message: voted.message,
+      });
+      return;
+    }
+
+    room.state = voted.data;
+    broadcastState(roomCode, room);
+
+    if (allConnectedVoted(room.state.votes, connectedIds)) {
+      const settled = settleVoting(room.state);
+      if (settled.ok) {
+        enterPhase(room, settled.data);
+      } else {
+        console.warn(
+          `[room ${roomCode}] settleVoting rejected on early exit: ${settled.message}`,
+        );
+      }
+    }
+  });
+
+  socket.on(CLIENT_EVENTS.SUBMIT_GUESS, (payload) => {
+    const { playerId, roomCode } = socket.data;
+    if (!playerId || !roomCode) {
+      return;
+    }
+    const text = payload?.text;
+    if (typeof text !== "string") {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "INVALID_PAYLOAD",
+        message: "submit_guess needs text.",
+      });
+      return;
+    }
+
+    const room = getRoom(roomCode);
+    if (!room) {
+      return;
+    }
+
+    const guessed = submitGuess(room.state, playerId, text);
+    if (!guessed.ok) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: guessed.code,
+        message: guessed.message,
+      });
+      return;
+    }
+
+    const revealed = toRoundRevealFromFinalGuess(guessed.data);
+    if (!revealed.ok) {
+      console.warn(
+        `[room ${roomCode}] toRoundRevealFromFinalGuess rejected after submit_guess: ${revealed.message}`,
+      );
+      return;
+    }
+    enterPhase(room, revealed.data);
   });
 
   socket.on(CLIENT_EVENTS.TIME_SYNC, (ack) => {

@@ -7,8 +7,8 @@ import type { GameState, Room, RoomCode } from "@/shared/types";
 import {
   advanceTurn,
   endRoundReveal,
+  settleVoting,
   toRoundRevealFromFinalGuess,
-  toRoundRevealFromVoting,
 } from "./state";
 import { armPhaseTimer } from "./timers";
 
@@ -29,7 +29,7 @@ function timeoutTransition(state: GameState): Result<GameState> | null {
     case "DRAWING":
       return advanceTurn(state); // advanceTurn is what ends the phase, once the last player of pass 2 runs out of time.
     case "VOTING":
-      return toRoundRevealFromVoting(state, null);
+      return settleVoting(state);
     case "FINAL_GUESS":
       return toRoundRevealFromFinalGuess(state);
     case "ROUND_REVEAL":
