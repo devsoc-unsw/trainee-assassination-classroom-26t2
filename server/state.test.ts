@@ -3,8 +3,10 @@ import type { GameState, Room } from "@/shared/types";
 import { createInitialGameState } from "./rooms";
 import {
   advanceTurn,
+  allConnectedVoted,
   assertPhase,
   beginDrawing,
+  castVote,
   dropFromTurnOrder,
   endDrawing,
   endGame,
@@ -13,7 +15,9 @@ import {
   pickImposter,
   resolveRoundWinner,
   serialiseStateFor,
+  settleVoting,
   startRound,
+  tallyVotes,
   toFinalGuess,
   toRoundRevealFromFinalGuess,
   toRoundRevealFromVoting,
@@ -380,6 +384,188 @@ describe("resolveRoundWinner", () => {
   });
 });
 
+describe("castVote", () => {
+  const CONNECTED = PLAYERS;
+
+  it("records a vote during VOTING", () => {
+    const result = castVote(stateAt("VOTING"), PLAYERS[0], PLAYERS[2], CONNECTED);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.votes).toEqual([
+        { voterId: PLAYERS[0], targetId: PLAYERS[2] },
+      ]);
+    }
+  });
+
+  it("rejects a self vote", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = castVote(
+      stateAt("VOTING"),
+      PLAYERS[0],
+      PLAYERS[0],
+      CONNECTED,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("SELF_VOTE");
+    warn.mockRestore();
+  });
+
+  it("rejects a vote for a player who is no longer connected", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = castVote(stateAt("VOTING"), PLAYERS[0], PLAYERS[3], [
+      PLAYERS[0],
+      PLAYERS[1],
+      PLAYERS[2],
+    ]);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("INVALID_VOTE_TARGET");
+    warn.mockRestore();
+  });
+
+  it("counts only the latest vote after three changes of mind", () => {
+    let state = stateAt("VOTING");
+    for (const target of [PLAYERS[1], PLAYERS[2], PLAYERS[3], PLAYERS[2]]) {
+      const result = castVote(state, PLAYERS[0], target, CONNECTED);
+      expect(result.ok).toBe(true);
+      if (result.ok) state = result.data;
+    }
+    expect(state.votes).toEqual([
+      { voterId: PLAYERS[0], targetId: PLAYERS[2] },
+    ]);
+  });
+
+  it("is rejected outside VOTING", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = castVote(
+      stateAt("DRAWING"),
+      PLAYERS[0],
+      PLAYERS[1],
+      CONNECTED,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("WRONG_PHASE");
+    warn.mockRestore();
+  });
+});
+
+describe("tallyVotes", () => {
+  it("returns the plurality winner", () => {
+    expect(
+      tallyVotes([
+        { voterId: PLAYERS[0], targetId: PLAYERS[1] },
+        { voterId: PLAYERS[2], targetId: PLAYERS[1] },
+        { voterId: PLAYERS[3], targetId: PLAYERS[0] },
+      ]),
+    ).toBe(PLAYERS[1]);
+  });
+
+  it("returns null on a tie for the lead", () => {
+    expect(
+      tallyVotes([
+        { voterId: PLAYERS[0], targetId: PLAYERS[1] },
+        { voterId: PLAYERS[2], targetId: PLAYERS[3] },
+      ]),
+    ).toBeNull();
+  });
+
+  it("returns null when nobody voted", () => {
+    expect(tallyVotes([])).toBeNull();
+  });
+});
+
+describe("allConnectedVoted", () => {
+  it("is false while a connected player still has not voted", () => {
+    expect(
+      allConnectedVoted(
+        [
+          { voterId: PLAYERS[0], targetId: PLAYERS[1] },
+          { voterId: PLAYERS[1], targetId: PLAYERS[0] },
+        ],
+        PLAYERS,
+      ),
+    ).toBe(false);
+  });
+
+  it("is true once every connected player has voted", () => {
+    expect(
+      allConnectedVoted(
+        PLAYERS.map((id, i) => ({
+          voterId: id,
+          targetId: PLAYERS[(i + 1) % PLAYERS.length],
+        })),
+        PLAYERS,
+      ),
+    ).toBe(true);
+  });
+
+  it("ignores a disconnected player who left the denominator", () => {
+    expect(
+      allConnectedVoted(
+        [
+          { voterId: PLAYERS[0], targetId: PLAYERS[1] },
+          { voterId: PLAYERS[1], targetId: PLAYERS[0] },
+          { voterId: PLAYERS[2], targetId: PLAYERS[0] },
+        ],
+        [PLAYERS[0], PLAYERS[1], PLAYERS[2]],
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("settleVoting", () => {
+  it("takes the caught branch to FINAL_GUESS when the imposter has the plurality", () => {
+    const state = stateAt("VOTING", {
+      votes: [
+        { voterId: PLAYERS[0], targetId: PLAYERS[1] },
+        { voterId: PLAYERS[2], targetId: PLAYERS[1] },
+        { voterId: PLAYERS[3], targetId: PLAYERS[0] },
+      ],
+    });
+    const result = settleVoting(state);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.phase).toBe("FINAL_GUESS");
+      expect(result.data.accusedId).toBe(PLAYERS[1]);
+    }
+  });
+
+  it("takes the survival branch to ROUND_REVEAL when a non-imposter is accused", () => {
+    const state = stateAt("VOTING", {
+      votes: [
+        { voterId: PLAYERS[0], targetId: PLAYERS[2] },
+        { voterId: PLAYERS[1], targetId: PLAYERS[2] },
+      ],
+    });
+    const result = settleVoting(state);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.phase).toBe("ROUND_REVEAL");
+      expect(result.data.accusedId).toBe(PLAYERS[2]);
+    }
+  });
+
+  it("treats a tie as no accusation and the imposter surviving", () => {
+    const state = stateAt("VOTING", {
+      votes: [
+        { voterId: PLAYERS[0], targetId: PLAYERS[1] },
+        { voterId: PLAYERS[2], targetId: PLAYERS[3] },
+      ],
+    });
+    const result = settleVoting(state);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.phase).toBe("ROUND_REVEAL");
+      expect(result.data.accusedId).toBeNull();
+    }
+  });
+
+  it("is rejected outside VOTING", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(settleVoting(stateAt("DRAWING")).ok).toBe(false);
+    warn.mockRestore();
+  });
+});
+
 describe("serialiseStateFor", () => {
   let room: Room;
 
@@ -405,11 +591,16 @@ describe("serialiseStateFor", () => {
     expect(view.reveal).toBeNull();
   });
 
-  it("exposes only a vote count, never the vote mapping, before reveal", () => {
-    room.state.votes = [{ voterId: PLAYERS[0], targetId: PLAYERS[1] }];
+  it("exposes only who has voted, never the vote mapping, before reveal", () => {
+    room = roomWith(stateAt("VOTING"));
+    room.state.votes = [
+      { voterId: PLAYERS[0], targetId: PLAYERS[1] },
+      { voterId: PLAYERS[2], targetId: PLAYERS[1] },
+    ];
     const view = serialiseStateFor(PLAYERS[0], room);
-    expect(view.voteCount).toBe(1);
+    expect(view.votedPlayerIds).toEqual([PLAYERS[0], PLAYERS[2]]);
     expect(view).not.toHaveProperty("votes");
+    expect(JSON.stringify(view)).not.toContain("targetId");
   });
 
   it("includes the full reveal, including imposterId and votes, once in ROUND_REVEAL", () => {
