@@ -37,6 +37,7 @@ export type ErrorCode =
   | "NOT_YOUR_TURN"
   | "SELF_VOTE"
   | "INVALID_VOTE_TARGET"
+  | "NOT_IMPOSTER"
   | "WRONG_PHASE"
   | "INVALID_PAYLOAD"
   | "NOT_HOST"
