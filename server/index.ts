@@ -149,6 +149,7 @@ function broadcastState(roomCode: RoomCode, room: Room) {
     const memberSocket = io.sockets.sockets.get(socketId);
     const playerId = memberSocket?.data.playerId;
     if (memberSocket && playerId) {
+      memberSocket.emit(SERVER_EVENTS.ROOM_UPDATED, room);
       memberSocket.emit(
         SERVER_EVENTS.STATE_UPDATED,
         serialiseStateFor(playerId, room),

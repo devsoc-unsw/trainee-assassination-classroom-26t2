@@ -2,7 +2,7 @@
 
 import { Canvas } from "./components/game/Canvas";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import type { GameState, PublicGameState, PublicRoom } from "@/shared/types";
+import type { PublicGameState, PublicRoom } from "@/shared/types";
 import {
     getPlayerId,
     getSessionSnapshot,
@@ -35,7 +35,7 @@ export function Game() {
     //         return;
     //     }
     //     socket.emit(
-    //         CLIENT_EVENTS.JOIN_ROOM,
+    //         CLIENT_EVENTS.,
     //         {
     //             playerId,
     //             nickname: storedSession.nickname,
@@ -94,10 +94,10 @@ export function Game() {
     if (room) {
         return (
             <main className="flex w-full max-w-6xl flex-1 flex-col items-center py-12 px-6 sm:py-16 sm:px-8 md:py-16 md:px-12">
-                <Canvas room={room} playerId={playerId} socket={socket} ></Canvas>
+                <Canvas room={room} playerId={playerId} socket={socket} myTurn={gameState?.turnOrder[gameState.turnIndex] === playerId && gameState.phase == "DRAWING"} ></Canvas>
             </main>
         );
 
     }
-    return <h1>ERROR</h1> //TODO: Handle more gracefully
+    return <h1>ERROR {error}</h1> //TODO: Handle more gracefully
 }

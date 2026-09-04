@@ -1,9 +1,12 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Game } from "./game";
 import { Lobby } from "./lobby";
 import { getSessionSnapshot, subscribe } from "./lib/identity";
+import { SERVER_EVENTS } from "@/shared/events";
+import { PublicGameState, PublicRoom } from "@/shared/types";
+import { useSocket } from "./socket-provider";
 
 export default function Home() {
   const storedSession = useSyncExternalStore(
@@ -12,10 +15,22 @@ export default function Home() {
     () => null,
   );
 
+  const socket = useSocket();
+
+  const [gameState, setGameState] = useState<PublicGameState | null>(null);
+
+  useEffect(() => {
+    const handleStateUpdated = (state: PublicGameState) => setGameState(state);
+    socket.on(SERVER_EVENTS.STATE_UPDATED, handleStateUpdated);
+    return () => {
+      socket.off(SERVER_EVENTS.STATE_UPDATED, handleStateUpdated);
+    };
+  }, [socket]);
+
   console.log(storedSession);
   console.log(storedSession?.phase);
 
-  if (storedSession == null || storedSession.phase == "LOBBY") {
+  if (gameState == null || gameState.phase == "LOBBY") {
     return (
       <div className="relative flex flex-1 flex-col items-center overflow-hidden font-sans">
         <div
