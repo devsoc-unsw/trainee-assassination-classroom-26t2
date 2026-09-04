@@ -21,10 +21,9 @@ export function Game({ room, gameState }: GameProps) {
 
     const playerUp = room.players.find((x)=>x.id == gameState.turnOrder[gameState.turnIndex])?.nickname
 
-
     return (
         <main className="flex w-full max-w-6xl flex-1 flex-col items-center py-12 px-6 sm:py-16 sm:px-8 md:py-16 md:px-12">
-            <h1>{playerUp}'s turn!</h1>
+            <h1>{gameState.phase}: {playerUp}'s turn!</h1>
             <Canvas
                 strokes={gameState.strokes}
                 room={room}

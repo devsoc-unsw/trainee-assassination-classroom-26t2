@@ -1,7 +1,4 @@
-// export const CANVAS_WIDTH = 800;
-// export const CANVAS_HEIGHT = 600;
-
-export const MIN_PLAYERS = 2;//TODO: Reset back to 4
+export const MIN_PLAYERS = 2;//TODO: Replace this
 export const MAX_PLAYERS = 8;
 
 export type PlayerId = string;

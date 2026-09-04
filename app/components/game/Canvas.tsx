@@ -9,7 +9,7 @@ const STROKE_WIDTH = 2;
 let ctx: null | CanvasRenderingContext2D = null;
 
 interface CanvasProps {
-    room: PublicRoom | null;
+    room: PublicRoom;
     playerId: PlayerId;
     socket: AppSocket;
     myTurn: boolean;
@@ -91,6 +91,7 @@ function startDraw(component: HTMLCanvasElement, xpos: number, ypos: number, roo
     }
 
     num_points = 0;
+    num_strokes += 1;
     ctx = null;
 
     const rect = component.getBoundingClientRect();
@@ -101,7 +102,6 @@ function startDraw(component: HTMLCanvasElement, xpos: number, ypos: number, roo
     line_to_point(component, point, player.colour);
 
     mid_stroke = true;
-
 
     socket.emit("stroke_start", { point: point });
 }
@@ -142,15 +142,9 @@ function finishDraw(component: HTMLCanvasElement, xpos: number, ypos: number, ro
     socket.emit("stroke_end", { points: [point] });
     ctx = null;
     mid_stroke = false;
-    //TODO: I may need to think about when to reset num_strokes and num_points
 }
 
 export function Canvas({ room, playerId, socket, myTurn, strokes }: CanvasProps) {
-
-    if (room == null) {
-        return <h1>ERROR: DISCONNECTED FROM ROOM</h1> //TODO: Not sure if this is graceful way to handle this :)
-    }
-
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     useEffect(() => { if (strokes != null && canvasRef?.current != null) { updateCanvas(canvasRef.current, strokes) } }, [canvasRef, strokes])
@@ -174,6 +168,7 @@ export function Canvas({ room, playerId, socket, myTurn, strokes }: CanvasProps)
             onPointerMove={(event) => { if (myTurn && mid_stroke) { continueDraw(event.currentTarget, event.clientX, event.clientY, room, playerId, socket) } }}
             onPointerUp={(event) => { if (myTurn && mid_stroke) { finishDraw(event.currentTarget, event.clientX, event.clientY, room, playerId, socket) } }}
             onPointerLeave={(event) => { if (myTurn && mid_stroke) { finishDraw(event.currentTarget, event.clientX, event.clientY, room, playerId, socket) } }}
+            onPointerCancel={(event) => { if (myTurn && mid_stroke) { finishDraw(event.currentTarget, event.clientX, event.clientY, room, playerId, socket) } }}
         />
     );
 }

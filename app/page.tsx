@@ -46,16 +46,7 @@ export default function Home() {
     );
   }
 
-  //TODO: Work out what to do about this
-  const attemptingRejoin =
-    storedSession !== null && room === null //&& error === null;
-  if (attemptingRejoin) {
-    return (
-      <main className="flex flex-1 items-center justify-center">
-        <p>Rejoining room {storedSession.roomCode}…</p>
-      </main>
-    );
-  }
+  
 
 
   if (room==null || gameState == null || gameState.phase == "LOBBY") {

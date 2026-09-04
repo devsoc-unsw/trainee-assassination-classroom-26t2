@@ -43,7 +43,7 @@ export function LobbyRoom({ room, playerId, socket }: LobbyRoomProps) {
       if (nickname == null || code == null) {
         return
       }
-      setStoredSession({ nickname, roomCode: code, phase: "DRAWING" });//TODO: Update this
+      setStoredSession({ nickname, roomCode: code, phase: "DRAWING" });
       socket.emit(CLIENT_EVENTS.START_GAME, resolve);
     });
   }
