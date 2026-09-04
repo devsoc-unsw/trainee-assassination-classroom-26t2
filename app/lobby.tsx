@@ -3,7 +3,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 import drawmeleonLogo from "@/public/images/landing-page/drawmeleon-logo.png";
-import { CLIENT_EVENTS, SERVER_EVENTS } from "@/shared/events";
+import { CLIENT_EVENTS } from "@/shared/events";
 import type { PublicRoom } from "@/shared/types";
 import { LobbyRoom } from "./components/lobby/LobbyRoom";
 import {
@@ -62,7 +62,7 @@ export function Lobby({ room }: LobbyProps) {
         setError(result.message);
         return;
       }
-      setStoredSession({ nickname, roomCode: result.data.code, phase: "LOBBY" });
+      setStoredSession({ nickname, roomCode: result.data.code });
     });
   }
 
@@ -76,7 +76,7 @@ export function Lobby({ room }: LobbyProps) {
           setError(result.message);
           return;
         }
-        setStoredSession({ nickname, roomCode: result.data.code, phase: "LOBBY" });
+        setStoredSession({ nickname, roomCode: result.data.code });
       },
     );
   }
