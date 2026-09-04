@@ -19,6 +19,7 @@
 import type { Result } from "@/shared/events";
 import type {
   GameState,
+  ImposterGuess,
   Phase,
   PlayerId,
   PlayerSecret,
@@ -26,6 +27,7 @@ import type {
   Room,
   RoundReveal,
   Scores,
+  Vote,
 } from "@/shared/types";
 
 export function assertPhase(
@@ -97,7 +99,7 @@ export function startRound(
   );
 }
 
-// Picks who's gonna be the imposter this round. 
+// Picks who's gonna be the imposter this round.
 // Avoids repeating the same player two rounds in a row
 export function pickImposter(
   playerIds: PlayerId[],
@@ -226,6 +228,113 @@ export function toRoundRevealFromVoting(
   return { ok: true, data: { ...state, accusedId, phase: "ROUND_REVEAL" } };
 }
 
+// T18: record a player's accusation/vote.
+export function castVote(
+  state: GameState,
+  voterId: PlayerId,
+  targetId: PlayerId,
+  connectedPlayerIds: PlayerId[],
+): Result<GameState> {
+  const guard = assertPhase(state, ["VOTING"], "cast_vote");
+  if (!guard.ok) {
+    return guard;
+  }
+  if (voterId === targetId) {
+    console.warn(
+      `[state] rejected "cast_vote": ${voterId} voted for themselves`,
+    );
+    return {
+      ok: false,
+      code: "SELF_VOTE",
+      message: "You cannot vote for yourself.",
+    };
+  }
+  if (!connectedPlayerIds.includes(targetId)) {
+    console.warn(
+      `[state] rejected "cast_vote": target ${targetId} is not a connected player`,
+    );
+    return {
+      ok: false,
+      code: "INVALID_VOTE_TARGET",
+      message: "That player is no longer in the game.",
+    };
+  }
+  const votes = [
+    ...state.votes.filter((vote) => vote.voterId !== voterId),
+    { voterId, targetId },
+  ];
+  return { ok: true, data: { ...state, votes } };
+}
+
+// Note: no votes/tie leads to no accusation, so the imposter is still alive!
+export function tallyVotes(votes: Vote[]): PlayerId | null {
+  const counts = new Map<PlayerId, number>();
+  for (const vote of votes) {
+    counts.set(vote.targetId, (counts.get(vote.targetId) ?? 0) + 1);
+  }
+
+  let leader: PlayerId | null = null;
+  let leadCount = 0;
+  let tied = false;
+  for (const [targetId, count] of counts) {
+    if (count > leadCount) {
+      leader = targetId;
+      leadCount = count;
+      tied = false;
+    } else if (count === leadCount) {
+      tied = true;
+    }
+  }
+
+  return tied ? null : leader;
+}
+
+export function allConnectedVoted(
+  votes: Vote[],
+  connectedPlayerIds: PlayerId[],
+): boolean {
+  const voters = new Set(votes.map((vote) => vote.voterId));
+  return connectedPlayerIds.every((id) => voters.has(id));
+}
+
+export function settleVoting(state: GameState): Result<GameState> {
+  const guard = assertPhase(state, ["VOTING"], "settle_voting");
+  if (!guard.ok) {
+    return guard;
+  }
+  const accusedId = tallyVotes(state.votes);
+  return accusedId !== null && accusedId === state.imposterId
+    ? toFinalGuess(state, accusedId)
+    : toRoundRevealFromVoting(state, accusedId);
+}
+
+// T29: imposter's one shot at the word.
+export function submitGuess(
+  state: GameState,
+  guesserId: PlayerId,
+  text: string,
+): Result<GameState> {
+  const guard = assertPhase(state, ["FINAL_GUESS"], "submit_guess");
+  if (!guard.ok) {
+    return guard;
+  }
+  if (guesserId !== state.imposterId) {
+    console.warn(
+      `[state] rejected "submit_guess": ${guesserId} is not the imposter`,
+    );
+    return {
+      ok: false,
+      code: "NOT_IMPOSTER",
+      message: "Only the imposter can make the final guess.",
+    };
+  }
+  const finalGuess: ImposterGuess = {
+    text: normaliseGuess(text),
+    submittedAt: Date.now(),
+  };
+  return { ok: true, data: { ...state, finalGuess } };
+}
+
 // FINAL_GUESS -> ROUND_REVEAL
 export function toRoundRevealFromFinalGuess(
   state: GameState,
@@ -347,7 +456,7 @@ export function serialiseStateFor(
     accusedId: state.accusedId,
     phaseEndsAt: state.phaseEndsAt,
     scores: state.scores,
-    voteCount: state.votes.length,
+    votedPlayerIds: state.votes.map((vote) => vote.voterId),
     secret,
     reveal,
   };
