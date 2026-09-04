@@ -114,7 +114,7 @@ export function joinRoom(
       message: `No room found with code ${roomCode}.`,
     };
   }
-  if (room.state.phase !== "LOBBY") {
+  if (room.state.phase !== "LOBBY" && !room.players.map((x)=>x.id).includes(playerId)) {
     return {
       ok: false,
       code: "ROOM_IN_PROGRESS",

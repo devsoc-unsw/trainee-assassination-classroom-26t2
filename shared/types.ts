@@ -1,4 +1,4 @@
-export const MIN_PLAYERS = 2;//TODO: Replace this
+export const MIN_PLAYERS = 2;//TODO: Actually remember to put this back this time.
 export const MAX_PLAYERS = 8;
 
 export type PlayerId = string;

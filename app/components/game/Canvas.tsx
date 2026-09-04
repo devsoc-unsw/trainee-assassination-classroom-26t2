@@ -5,6 +5,7 @@ import { PlayerId, PublicRoom, Point, Stroke } from "@/shared/types";
 import { useEffect, useRef } from "react";
 
 const STROKE_WIDTH = 2;
+const UPDATES_PER_SEC = 1;
 
 let ctx: null | CanvasRenderingContext2D = null;
 
@@ -19,6 +20,11 @@ interface CanvasProps {
 let num_strokes: number = 0;
 let num_points: number = 0;
 let mid_stroke: boolean = false;
+let queued_strokes: Point[] = [];
+let time_since_last_sent:number = 0;
+
+console.log("NUM STROKES:" + num_strokes);
+
 
 function line_to_point(component: HTMLCanvasElement, point: Point, colour: string) {
     if (ctx == null) {
@@ -54,6 +60,8 @@ function display_stroke(component: HTMLCanvasElement, stroke: Stroke) {
 }
 
 export function updateCanvas(component: HTMLCanvasElement, strokes: Stroke[]) {
+    console.log("UPDATE");
+    console.log(strokes);
     while (strokes.length > num_strokes) {
         const new_stroke = strokes.at(num_strokes);
         if (new_stroke !== undefined) {
@@ -104,6 +112,7 @@ function startDraw(component: HTMLCanvasElement, xpos: number, ypos: number, roo
     mid_stroke = true;
 
     socket.emit("stroke_start", { point: point });
+    time_since_last_sent = Date.now();
 }
 
 function continueDraw(component: HTMLCanvasElement, xpos: number, ypos: number, room: PublicRoom, playerId: PlayerId, socket: AppSocket) {
@@ -120,8 +129,13 @@ function continueDraw(component: HTMLCanvasElement, xpos: number, ypos: number, 
     const point: Point = { x: fracx, y: fracy };
     line_to_point(component, point, player.colour);
 
-
-    socket.emit("stroke_point", { points: [point] });
+    if (Date.now() - time_since_last_sent < 1000/UPDATES_PER_SEC) {
+        queued_strokes.push(point);
+    } else {
+        socket.emit("stroke_point", { points: queued_strokes.concat([point]) });
+        queued_strokes = [];
+        time_since_last_sent = Date.now();
+    }
 }
 
 function finishDraw(component: HTMLCanvasElement, xpos: number, ypos: number, room: PublicRoom, playerId: PlayerId, socket: AppSocket) {
@@ -139,7 +153,9 @@ function finishDraw(component: HTMLCanvasElement, xpos: number, ypos: number, ro
     line_to_point(component, point, player.colour);
 
 
-    socket.emit("stroke_end", { points: [point] });
+    socket.emit("stroke_end", { points: queued_strokes.concat([point]) });
+    time_since_last_sent = Date.now();
+    queued_strokes = [];
     ctx = null;
     mid_stroke = false;
 }
