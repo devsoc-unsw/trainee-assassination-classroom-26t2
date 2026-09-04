@@ -3,18 +3,12 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Game } from "./game";
 import { Lobby } from "./lobby";
-import { getPlayerId, getSessionSnapshot, subscribe } from "./lib/identity";
+import { getPlayerId, subscribe } from "./lib/identity";
 import { SERVER_EVENTS } from "@/shared/events";
 import { PublicGameState, PublicRoom } from "@/shared/types";
 import { useSocket } from "./socket-provider";
 
 export default function Home() {
-  const storedSession = useSyncExternalStore(
-    subscribe,
-    getSessionSnapshot,
-    () => null,
-  );
-
   const playerId = useSyncExternalStore(subscribe, getPlayerId, () => "");
 
   const socket = useSocket();
@@ -46,7 +40,10 @@ export default function Home() {
     );
   }
 
-  if (room==null || gameState == null || gameState.phase == "LOBBY") {
+  const inLobby =
+    room === null || gameState === null || gameState.phase === "LOBBY";
+
+  if (inLobby) {
     return (
       <div className="relative flex flex-1 flex-col items-center overflow-hidden font-sans">
         <div
@@ -60,7 +57,7 @@ export default function Home() {
         <Lobby room={room} />
       </div>
     );
-  } else {
-    return <Game room={room} gameState={gameState} />
   }
+
+  return <Game room={room} gameState={gameState} />;
 }
