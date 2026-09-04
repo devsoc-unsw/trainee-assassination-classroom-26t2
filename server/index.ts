@@ -5,7 +5,14 @@ import type {
   ClientToServerEvents,
   ServerToClientEvents,
 } from "../shared/events";
-import type { PlayerId, Point, Room, RoomCode, Stroke, Phase } from "../shared/types";
+import type {
+  PlayerId,
+  Point,
+  Room,
+  RoomCode,
+  Stroke,
+  Phase,
+} from "../shared/types";
 import { createPhaseLoop } from "./phase-loop";
 import {
   canStartGame,
@@ -311,6 +318,10 @@ io.on("connection", (socket) => {
 
     const room = getRoom(roomCode);
     if (!room) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "ROOM_NOT_FOUND",
+        message: "Could not locate room.",
+      });
       return;
     }
 
@@ -325,10 +336,14 @@ io.on("connection", (socket) => {
     const stroke = room.state.strokes.at(-1);
 
     if (stroke?.playerId !== playerId) {
-      return
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "NOT_YOUR_TURN",
+        message: "It is not your turn to draw.",
+      });
+      return;
     }
 
-    stroke.points = stroke.points.concat(payload.points)
+    stroke.points = stroke.points.concat(payload.points);
 
     // Finishing a stroke ends the turn early.
     const advanced = advanceTurn(room.state);
@@ -437,22 +452,33 @@ io.on("connection", (socket) => {
   socket.on(CLIENT_EVENTS.STROKE_START, (payload) => {
     const { playerId, roomCode } = socket.data;
     if (roomCode == null) {
-      //TODO: Find out whether this is correct
-      // ack({ ok: false, code: "ROOM_NOT_FOUND", message: "Not in a room." });
-      return
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "ROOM_NOT_FOUND",
+        message: "Not in a room.",
+      });
+      return;
     }
     const room = getRoom(roomCode);
 
     const colour = room?.players.find((x) => x.id == playerId)?.colour;
 
     if (playerId == null || colour == null || room == null) {
-      // ack({ ok: false, code: "ROOM_NOT_FOUND", message: "Not in a room." });
-      return
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "ROOM_NOT_FOUND",
+        message: "Not in a room.",
+      });
+      return;
     }
 
-    if (room?.state.turnOrder[room?.state.turnIndex] != playerId || room?.state.phase !== "DRAWING") {
-      // ack({ ok: false, code: "NOT_YOUR_TURN", message: "Not your turn." });
-      return
+    if (
+      room?.state.turnOrder[room?.state.turnIndex] != playerId ||
+      room?.state.phase !== "DRAWING"
+    ) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "NOT_YOUR_TURN",
+        message: "Not your turn.",
+      });
+      return;
     }
 
     const stroke: Stroke = {
@@ -460,41 +486,53 @@ io.on("connection", (socket) => {
       playerId: playerId,
       colour: colour,
       points: [payload.point],
-    }
-    room?.state.strokes.push(stroke)
+    };
+    room?.state.strokes.push(stroke);
     broadcastState(roomCode, room);
   });
 
   socket.on(CLIENT_EVENTS.STROKE_POINT, (payload) => {
     const { playerId, roomCode } = socket.data;
     if (roomCode == null) {
-      // ack({ ok: false, code: "ROOM_NOT_FOUND", message: "Not in a room." });
-      return
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "ROOM_NOT_FOUND",
+        message: "Not in a room.",
+      });
+      return;
     }
     const room = getRoom(roomCode);
 
     const colour = room?.players.find((x) => x.id == playerId)?.colour;
 
     if (playerId == null || colour == null || room == null) {
-      // ack({ ok: false, code: "ROOM_NOT_FOUND", message: "Not in a room." });
-      return
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "ROOM_NOT_FOUND",
+        message: "Not in a room.",
+      });
+      return;
     }
 
-    if (room?.state.turnOrder[room?.state.turnIndex] != playerId || room?.state.phase !== "DRAWING") {
-      // ack({ ok: false, code: "NOT_YOUR_TURN", message: "Not your turn." });
-      return
+    if (
+      room?.state.turnOrder[room?.state.turnIndex] != playerId ||
+      room?.state.phase !== "DRAWING"
+    ) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "NOT_YOUR_TURN",
+        message: "Not your turn.",
+      });
+      return;
     }
 
     const stroke = room.state.strokes.at(-1);
 
     if (stroke?.playerId !== playerId) {
-      return
+      return;
     }
 
-    stroke.points = stroke.points.concat(payload.points)
+    stroke.points = stroke.points.concat(payload.points);
 
     broadcastState(roomCode, room);
-  })
+  });
 
   socket.on("disconnect", () => {
     console.log(`client disconnected: ${socket.id}`);
