@@ -5,7 +5,7 @@ import { PlayerId, PublicRoom, Point, Stroke } from "@/shared/types";
 import { useEffect, useRef } from "react";
 
 const STROKE_WIDTH = 2;
-const UPDATES_PER_SEC = 60;//TODO: Make this 60 at some point
+const UPDATES_PER_SEC = 60; //TODO: Make this 60 at some point
 
 let ctx: null | CanvasRenderingContext2D = null;
 
@@ -19,23 +19,23 @@ interface CanvasProps {
 
 let num_strokes: number = 0;
 let num_points: number = 0;
-let mid_stroke: boolean = false;
 let queued_strokes: Point[] = [];
 let time_since_last_sent: number = 0;
+let currently_drawing: boolean = false;
 
-console.log("NUM STROKES:" + num_strokes);
 
 function line_to_point(
   component: HTMLCanvasElement,
   point: Point,
   colour: string,
+  mid_stroke: boolean,
 ) {
   if (ctx == null) {
     ctx = component.getContext("2d");
 
-    if (ctx==null){
-        console.error("Failed to load ctx");
-        return
+    if (ctx == null) {
+      console.error("Failed to load ctx");
+      return;
     }
 
     const dpr = window.devicePixelRatio || 1;
@@ -43,53 +43,36 @@ function line_to_point(
     component.height = component.clientHeight * dpr;
     ctx.scale(dpr, dpr);
   }
-  console.log(
-    "Replay coords:",
-    point.x * component.width,
-    point.y * component.height,
-    "Canvas size:",
-    component.width,
-    component.height,
-  );
-  console.log(component);
-  console.log(component.height);
-  console.log(mid_stroke);
   if (!mid_stroke) {
     ctx.strokeStyle = colour;
     ctx.lineWidth = STROKE_WIDTH;
 
     ctx.beginPath();
     ctx.moveTo(point.x * component.width, point.y * component.height);
-    mid_stroke = true;
   } else {
     ctx.strokeStyle = colour;
+    ctx.lineWidth = STROKE_WIDTH;
     ctx.lineTo(point.x * component.width, point.y * component.height);
-    ctx.stroke();
   }
-  console.log(ctx.strokeStyle);
-  console.log("Current transform:", ctx.getTransform());
 }
 
-function display_stroke(component: HTMLCanvasElement, stroke: Stroke) {
-  console.log("Displaying stroke", stroke);
+function display_stroke(component: HTMLCanvasElement, stroke: Stroke, mid_stroke: boolean) {
   while (stroke.points.length > num_points) {
-    line_to_point(component, stroke.points[num_points], stroke.colour);
+    line_to_point(component, stroke.points[num_points], stroke.colour, mid_stroke);
+    mid_stroke = true;
     num_points += 1;
-    mid_stroke = num_points != stroke.points.length;
   }
+  ctx?.stroke();
 }
 
 export function updateCanvas(component: HTMLCanvasElement, strokes: Stroke[]) {
-  console.log("UPDATE");
-  console.log(strokes);
-  console.log(num_strokes);
   while (strokes.length > num_strokes) {
     const new_stroke = strokes.at(num_strokes);
     if (new_stroke === undefined) {
       return;
     }
     num_points = 0;
-    display_stroke(component, new_stroke);
+    display_stroke(component, new_stroke, false);
 
     num_strokes += 1;
   }
@@ -97,7 +80,7 @@ export function updateCanvas(component: HTMLCanvasElement, strokes: Stroke[]) {
   const final_stroke = strokes.at(-1);
 
   if (final_stroke !== undefined) {
-    display_stroke(component, final_stroke);
+    display_stroke(component, final_stroke, true);
   }
 }
 
@@ -123,12 +106,12 @@ function startDraw(
   const fracy = (ypos - rect.top) / (rect.bottom - rect.top);
 
   const point: Point = { x: fracx, y: fracy };
-  line_to_point(component, point, player.colour);
-
-  mid_stroke = true;
+  line_to_point(component, point, player.colour, false);
+  ctx?.stroke();
 
   socket.emit("stroke_start", { point: point });
   time_since_last_sent = Date.now();
+  currently_drawing = true;
 }
 
 function continueDraw(
@@ -150,7 +133,9 @@ function continueDraw(
   const fracy = (ypos - rect.top) / (rect.bottom - rect.top);
 
   const point: Point = { x: fracx, y: fracy };
-  line_to_point(component, point, player.colour);
+  num_points += 1;
+  line_to_point(component, point, player.colour, true);
+  ctx?.stroke();
 
   if (Date.now() - time_since_last_sent < 1000 / UPDATES_PER_SEC) {
     queued_strokes.push(point);
@@ -180,12 +165,14 @@ function finishDraw(
   const fracy = (ypos - rect.top) / (rect.bottom - rect.top);
 
   const point: Point = { x: fracx, y: fracy };
-  line_to_point(component, point, player.colour);
+  num_points += 1;
+  line_to_point(component, point, player.colour, true);
+  ctx?.stroke();
 
   socket.emit("stroke_end", { points: queued_strokes.concat([point]) });
   time_since_last_sent = Date.now();
   queued_strokes = [];
-  mid_stroke = false;
+  currently_drawing = false;
 }
 
 export function Canvas({
@@ -197,14 +184,14 @@ export function Canvas({
 }: CanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  useEffect(()=>{
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     if (strokes != null) {
       updateCanvas(canvas, strokes);
     }
-  }, [strokes, canvasRef])
+  }, [strokes, canvasRef]);
 
   return (
     <canvas
@@ -223,7 +210,7 @@ export function Canvas({
         }
       }}
       onPointerMove={(event) => {
-        if (myTurn && mid_stroke) {
+        if (myTurn && currently_drawing) {
           continueDraw(
             event.currentTarget,
             event.clientX,
@@ -235,7 +222,7 @@ export function Canvas({
         }
       }}
       onPointerUp={(event) => {
-        if (myTurn && mid_stroke) {
+        if (myTurn && currently_drawing) {
           finishDraw(
             event.currentTarget,
             event.clientX,
@@ -247,7 +234,7 @@ export function Canvas({
         }
       }}
       onPointerLeave={(event) => {
-        if (myTurn && mid_stroke) {
+        if (myTurn && currently_drawing) {
           finishDraw(
             event.currentTarget,
             event.clientX,
@@ -259,7 +246,7 @@ export function Canvas({
         }
       }}
       onPointerCancel={(event) => {
-        if (myTurn && mid_stroke) {
+        if (myTurn && currently_drawing) {
           finishDraw(
             event.currentTarget,
             event.clientX,

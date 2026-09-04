@@ -7,19 +7,9 @@ import type {
 } from "../shared/events";
 import type {
   PlayerId,
-  Point,
   Room,
   RoomCode,
   Stroke,
-  Phase,
-} from "../shared/types";
-import type {
-  PlayerId,
-  Point,
-  Room,
-  RoomCode,
-  Stroke,
-  Phase,
 } from "../shared/types";
 import { createPhaseLoop } from "./phase-loop";
 import {
