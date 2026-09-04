@@ -361,6 +361,15 @@ describe("resolveRoundWinner", () => {
     expect(resolveRoundWinner(state)).toBe("IMPOSTER");
   });
 
+  it('"The Cat!" matches the word "the cat" after normalisation', () => {
+    const state = stateAt("ROUND_REVEAL", {
+      word: "the cat",
+      accusedId: PLAYERS[1],
+      finalGuess: { text: "The Cat!", submittedAt: 0 },
+    });
+    expect(resolveRoundWinner(state)).toBe("IMPOSTER");
+  });
+
   it("group wins when caught and guessed wrong", () => {
     const state = stateAt("ROUND_REVEAL", {
       accusedId: PLAYERS[1],
