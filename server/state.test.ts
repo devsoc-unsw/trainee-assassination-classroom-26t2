@@ -17,6 +17,7 @@ import {
   serialiseStateFor,
   settleVoting,
   startRound,
+  submitGuess,
   tallyVotes,
   toFinalGuess,
   toRoundRevealFromFinalGuess,
@@ -564,6 +565,77 @@ describe("settleVoting", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     expect(settleVoting(stateAt("DRAWING")).ok).toBe(false);
     warn.mockRestore();
+  });
+});
+
+describe("submitGuess", () => {
+  it("stores the imposter's guess, normalised, during FINAL_GUESS", () => {
+    const state = stateAt("FINAL_GUESS", { accusedId: PLAYERS[1] });
+    const result = submitGuess(state, PLAYERS[1], "  The   Cat! ");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.finalGuess?.text).toBe("the cat");
+      expect(typeof result.data.finalGuess?.submittedAt).toBe("number");
+    }
+  });
+
+  it("rejects and logs a non-imposter, leaving the guess untouched", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const state = stateAt("FINAL_GUESS", { accusedId: PLAYERS[1] });
+    const result = submitGuess(state, PLAYERS[0], "cat");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("NOT_IMPOSTER");
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(state.finalGuess).toBeNull();
+    warn.mockRestore();
+  });
+
+  it("is rejected outside FINAL_GUESS", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = submitGuess(stateAt("VOTING"), PLAYERS[1], "cat");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("WRONG_PHASE");
+    warn.mockRestore();
+  });
+
+  it("rejects a second guess once the phase has moved on (one guess only)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = submitGuess(
+      stateAt("ROUND_REVEAL", {
+        accusedId: PLAYERS[1],
+        finalGuess: { text: "cat", submittedAt: 0 },
+      }),
+      PLAYERS[1],
+      "dog",
+    );
+    expect(result.ok).toBe(false);
+    warn.mockRestore();
+  });
+
+  it("caught branch end to end: settle -> guess -> reveal -> winner", () => {
+    const voting = stateAt("VOTING", {
+      votes: [
+        { voterId: PLAYERS[0], targetId: PLAYERS[1] },
+        { voterId: PLAYERS[2], targetId: PLAYERS[1] },
+      ],
+    });
+    const settled = settleVoting(voting);
+    expect(settled.ok && settled.data.phase).toBe("FINAL_GUESS");
+    if (!settled.ok) return;
+
+    for (const [guess, winner] of [
+      ["a horse", "GROUP"],
+      ["Cat!", "IMPOSTER"],
+    ] as const) {
+      const guessed = submitGuess(settled.data, PLAYERS[1], guess);
+      expect(guessed.ok).toBe(true);
+      if (!guessed.ok) continue;
+      const revealed = toRoundRevealFromFinalGuess(guessed.data);
+      expect(revealed.ok).toBe(true);
+      if (!revealed.ok) continue;
+      expect(revealed.data.phase).toBe("ROUND_REVEAL");
+      expect(resolveRoundWinner(revealed.data)).toBe(winner);
+    }
   });
 });
 

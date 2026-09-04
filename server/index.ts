@@ -29,6 +29,8 @@ import {
   serialiseStateFor,
   settleVoting,
   startRound,
+  submitGuess,
+  toRoundRevealFromFinalGuess,
 } from "./state";
 import { clearRoomTimer } from "./timers";
 import { parseIdentity, parseRoomCode, safeAck } from "./validate";
@@ -61,9 +63,6 @@ type GameSocket = Socket<
   SocketData
 >;
 
-// A refreshing browser disconnects and reconnects within moments. Removing
-// the player immediately would delete the room out from under a solo host
-// before the reconnect lands, so give them a window to come back first.
 const RECONNECT_GRACE_MS = 10_000;
 const pendingRemovals = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -322,9 +321,7 @@ io.on("connection", (socket) => {
       return;
     }
 
-    // Finishing a stroke ends the turn early. The stroke itself is not kept
-    // yet - that belongs to the stroke relay, which will record the payload
-    // here before handing the turn on.
+    // Finishing a stroke ends the turn early.
     const advanced = advanceTurn(room.state);
     if (!advanced.ok) {
       socket.emit(SERVER_EVENTS.ERROR, {
@@ -382,6 +379,44 @@ io.on("connection", (socket) => {
         );
       }
     }
+  });
+
+  socket.on(CLIENT_EVENTS.SUBMIT_GUESS, (payload) => {
+    const { playerId, roomCode } = socket.data;
+    if (!playerId || !roomCode) {
+      return;
+    }
+    const text = payload?.text;
+    if (typeof text !== "string") {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "INVALID_PAYLOAD",
+        message: "submit_guess needs text.",
+      });
+      return;
+    }
+
+    const room = getRoom(roomCode);
+    if (!room) {
+      return;
+    }
+
+    const guessed = submitGuess(room.state, playerId, text);
+    if (!guessed.ok) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: guessed.code,
+        message: guessed.message,
+      });
+      return;
+    }
+
+    const revealed = toRoundRevealFromFinalGuess(guessed.data);
+    if (!revealed.ok) {
+      console.warn(
+        `[room ${roomCode}] toRoundRevealFromFinalGuess rejected after submit_guess: ${revealed.message}`,
+      );
+      return;
+    }
+    enterPhase(room, revealed.data);
   });
 
   socket.on(CLIENT_EVENTS.TIME_SYNC, (ack) => {
