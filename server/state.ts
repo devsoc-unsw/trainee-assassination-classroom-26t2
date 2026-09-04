@@ -17,6 +17,7 @@
 // socket emission of game state must go through it - never emit GameState.
 
 import type { Result } from "@/shared/events";
+import { ROUNDS_PER_GAME } from "@/shared/types";
 import type {
   GameState,
   ImposterGuess,
@@ -26,6 +27,7 @@ import type {
   PublicGameState,
   Room,
   RoundReveal,
+  RoundWinner,
   Scores,
   Vote,
 } from "@/shared/types";
@@ -94,6 +96,7 @@ export function startRound(
       votes: [],
       accusedId: null,
       finalGuess: null,
+      roundWinner: null,
       phaseEndsAt: null,
     }),
   );
@@ -225,7 +228,9 @@ export function toRoundRevealFromVoting(
       message: "The imposter was caught; final guess runs before reveal.",
     };
   }
-  return { ok: true, data: { ...state, accusedId, phase: "ROUND_REVEAL" } };
+  // VOTING end on the survival branch: the round is decided here.
+  const data = { ...state, accusedId, phase: "ROUND_REVEAL" as const };
+  return { ok: true, data: { ...data, roundWinner: resolveRoundWinner(data) } };
 }
 
 // T18: record a player's accusation/vote.
@@ -344,7 +349,7 @@ export function toRoundRevealFromFinalGuess(
     ["FINAL_GUESS"],
     "ROUND_REVEAL",
     "to_round_reveal_from_final_guess",
-    (s) => s,
+    (s) => ({ ...s, roundWinner: resolveRoundWinner(s) }),
   );
 }
 
@@ -378,20 +383,29 @@ function normaliseGuess(text: string): string {
     .replace(/\s+/g, " ");
 }
 
-export function resolveRoundWinner(state: GameState): "GROUP" | "IMPOSTER" {
+export function resolveRoundWinner(state: GameState): RoundWinner {
   const caught =
     state.accusedId !== null && state.accusedId === state.imposterId;
   if (!caught) {
     return "IMPOSTER";
   }
-  const guess = state.finalGuess?.text ?? "";
-  return normaliseGuess(guess) === normaliseGuess(state.word)
-    ? "IMPOSTER"
-    : "GROUP";
+  const guess = normaliseGuess(state.finalGuess?.text ?? "");
+  const word = normaliseGuess(state.word);
+  return guess.length > 0 && guess === word ? "IMPOSTER" : "GROUP";
+}
+
+export function isGameOver(state: GameState): boolean {
+  return state.roundNumber >= ROUNDS_PER_GAME;
 }
 
 function applyRoundResult(state: GameState): Scores {
-  const winner = resolveRoundWinner(state);
+  const winner = state.roundWinner ?? resolveRoundWinner(state);
+  console.log(
+    `[round result] round=${state.roundNumber} winner=${winner} ` +
+      `word=${JSON.stringify(state.word)} ` +
+      `guess=${JSON.stringify(state.finalGuess?.text ?? "")} ` +
+      `caught=${state.accusedId !== null && state.accusedId === state.imposterId}`,
+  );
   const scores: Scores = {
     groupRoundsWon: state.scores.groupRoundsWon,
     imposterRoundsWon: state.scores.imposterRoundsWon,
@@ -442,7 +456,7 @@ export function serialiseStateFor(
           word: state.word,
           votes: state.votes,
           finalGuess: state.finalGuess,
-          winner: resolveRoundWinner(state),
+          winner: state.roundWinner ?? resolveRoundWinner(state),
         }
       : null;
 

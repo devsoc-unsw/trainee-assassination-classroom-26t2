@@ -63,6 +63,7 @@ export function createInitialGameState(): GameState {
     votes: [],
     accusedId: null,
     finalGuess: null,
+    roundWinner: null,
     scores: { groupRoundsWon: 0, imposterRoundsWon: 0, perPlayer: {} },
     phaseEndsAt: null,
   };
