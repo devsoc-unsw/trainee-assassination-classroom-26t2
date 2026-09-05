@@ -106,6 +106,7 @@ describe("phase timers", () => {
     expect(isTimedPhase("ROUND_REVEAL")).toBe(true);
     expect(isTimedPhase("LOBBY")).toBe(false);
     expect(isTimedPhase("ROUND_STARTING")).toBe(false);
+    expect(isTimedPhase("SCORING")).toBe(false);
     expect(isTimedPhase("GAME_OVER")).toBe(false);
   });
 

@@ -11,6 +11,7 @@ export type Phase =
   | "VOTING"
   | "FINAL_GUESS"
   | "ROUND_REVEAL"
+  | "SCORING"
   | "GAME_OVER";
 
 export interface Player {
