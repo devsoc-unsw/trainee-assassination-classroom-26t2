@@ -49,6 +49,11 @@ const PENCIL = { length: 8, tipX: 58, tipY: 100, angle: 34 };
 // Where the design rests the pencil while nobody is drawing, in board percent.
 const PENCIL_PARK = { x: 69.7, y: 59.8 };
 
+// Sits in the bottom right margin, outside the board, flush with the board's
+// right edge the same way NOTE is (right: 12.66 there too) — this is what
+// lines an element's right edge up with the board's rather than the frame's.
+const MUSIC_TOGGLE = { right: 12.66, bottom: 4.5, width: 4 };
+
 // Canvas.tsx renders at a hardcoded 800x600 with no override prop; mirrored
 // here to compute the scale that fills the board slot — keep in sync if that
 // changes, since there's nothing to import that would do it automatically.
@@ -59,6 +64,11 @@ const TEAMMATE_CANVAS_HEIGHT = 600;
 // turns red for the last quarter of it rather than the 10s the 60s mockup used.
 const URGENT_MS = 5_000;
 const INK = "#3f3730";
+
+// Plays once a turn's own clock reaches zero. Kept apart from the round loop
+// in DrawingRoundScreen, which runs for the whole phase rather than per turn.
+const TIMER_END_SRC = "/sounds/timer-end.wav";
+const TIMER_END_VOLUME = 0.8;
 
 // Note text size: shrinks by measuring the real element's scrollWidth/Height
 // rather than guessing a character width, which clipped on long words like
@@ -85,6 +95,11 @@ interface DrawingRoundProps {
   canDraw: boolean;
   phaseEndsAt: number | null;
   pass: 1 | 2;
+  // Owned by the caller (DrawingRoundScreen persists it past this component's
+  // own mount, since a new round remounts everything here) — this only reads
+  // it, to pick the icon and gate the timer SFX below.
+  muted: boolean;
+  onToggleMuted: () => void;
   // Real play passes teammates' <Canvas>; the offline preview passes a blank
   // placeholder. Either way this component only sizes and frames it.
   board: ReactNode;
@@ -102,6 +117,8 @@ export default function DrawingRound({
   canDraw,
   phaseEndsAt,
   pass,
+  muted,
+  onToggleMuted,
   board,
 }: DrawingRoundProps) {
   const boardOuterRef = useRef<HTMLDivElement>(null);
@@ -167,6 +184,28 @@ export default function DrawingRound({
   const remainingMs = useCountdown(phaseEndsAt);
   const hasDeadline = phaseEndsAt !== null;
   const seconds = hasDeadline ? Math.ceil(remainingMs / 1000) : null;
+
+  // useCountdown re-renders on a 250ms tick and clamps at zero, so once a
+  // turn's clock runs out, remainingMs stays exactly 0 on every render after
+  // that until phaseEndsAt moves on to the next turn. The ref guards against
+  // firing again on those later renders; resetting it on phaseEndsAt is what
+  // lets the very next turn's expiry fire again.
+  const hasPlayedTimeUp = useRef(false);
+  useEffect(() => {
+    hasPlayedTimeUp.current = false;
+  }, [phaseEndsAt]);
+  useEffect(() => {
+    if (hasDeadline && remainingMs <= 0 && !hasPlayedTimeUp.current) {
+      hasPlayedTimeUp.current = true;
+      const bell = new Audio(TIMER_END_SRC);
+      bell.volume = TIMER_END_VOLUME;
+      // Set rather than skipped, so the one music toggle covers both this and
+      // the round loop the same way, instead of two different mechanisms.
+      bell.muted = muted;
+      // A browser can refuse this; that just means silence, not a crash.
+      bell.play().catch(() => {});
+    }
+  }, [hasDeadline, remainingMs, muted]);
 
   const isMyTurn = currentDrawerId === myPlayerId;
   const currentDrawer =
@@ -424,6 +463,23 @@ export default function DrawingRound({
         >
           {turnLabel}
         </p>
+
+        {/* Mutes both the round music and the timer bell together, as one
+            sound switch rather than two. */}
+        <button
+          type="button"
+          onClick={onToggleMuted}
+          aria-pressed={muted}
+          aria-label={muted ? "Unmute sound" : "Mute sound"}
+          className={`art-music-toggle absolute cursor-pointer ${
+            muted ? "art-music-toggle-off" : "art-music-toggle-on"
+          }`}
+          style={{
+            right: `${MUSIC_TOGGLE.right}%`,
+            bottom: `${MUSIC_TOGGLE.bottom}%`,
+            width: `${MUSIC_TOGGLE.width}cqw`,
+          }}
+        />
       </div>
     </div>
   );

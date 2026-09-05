@@ -646,7 +646,7 @@ io.on("connection", (socket) => {
       return;
     }
 
-    var room = getRoom(roomCode);
+    let room = getRoom(roomCode);
     if (!room) {
       ack({ ok: false, code: "ROOM_NOT_FOUND", message: "Not in a room." });
       return;

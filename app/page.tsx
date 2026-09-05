@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Game } from "./game";
 import { Lobby } from "./lobby";
 import { getPlayerId, subscribe } from "./lib/identity";

@@ -1,4 +1,4 @@
-import { SocketError, type Result } from "@/shared/events";
+import { type Result } from "@/shared/events";
 import {
   MAX_PLAYERS,
   MIN_PLAYERS,
@@ -135,16 +135,6 @@ export function joinRoom(
       ok: false,
       code: "ROOM_NOT_FOUND",
       message: `No room found with code ${roomCode}.`,
-    };
-  }
-  if (
-    room.state.phase !== "LOBBY" &&
-    !room.players.map((x) => x.id).includes(playerId)
-  ) {
-    return {
-      ok: false,
-      code: "ROOM_IN_PROGRESS",
-      message: "That game has already started.",
     };
   }
 
