@@ -3,9 +3,10 @@ import { Server, type DefaultEventsMap, type Socket } from "socket.io";
 import { CLIENT_EVENTS, SERVER_EVENTS } from "../shared/events";
 import type {
   ClientToServerEvents,
+  Result,
   ServerToClientEvents,
 } from "../shared/events";
-import type { PlayerId, Room, RoomCode } from "../shared/types";
+import type { PlayerId, Room, RoomCode, Stroke } from "../shared/types";
 import { createPhaseLoop } from "./phase-loop";
 import {
   canStartGame,
@@ -34,6 +35,7 @@ import {
 import { clearRoomTimer } from "./timers";
 import { parseIdentity, parseRoomCode, safeAck } from "./validate";
 import { drawWord } from "./word-selection";
+import { randomUUID } from "crypto";
 
 interface SocketData {
   playerId?: PlayerId;
@@ -160,9 +162,16 @@ function broadcastState(roomCode: RoomCode, room: Room) {
 }
 
 // T09: the phase loop drives timed transitions. See server/phase-loop.ts.
+// T19: startNextRound goes to the next round after SCORING
 const { enterPhase } = createPhaseLoop({
   getRoom,
   broadcast: (room) => broadcastState(room.code, room),
+  startNextRound: (room) => {
+    const res = beginRound(room);
+    if (!res.ok) {
+      console.warn(`[room ${room.code}] next round rejected: ${res.message}`);
+    }
+  },
 });
 
 function shuffled<T>(items: T[]): T[] {
@@ -172,6 +181,39 @@ function shuffled<T>(items: T[]): T[] {
     [copy[i], copy[j]] = [copy[j], copy[i]];
   }
   return copy;
+}
+
+// Shuffle turn order, pick the imposter, draw a word, and enter DRAWING.
+// Shared by the host's start_game and the phase loop's post-SCORING next round.
+// Disconnected players are left out of the rotation (T08).
+function beginRound(room: Room): Result<void> {
+  const turnOrder = shuffled(
+    room.players
+      .filter((player) => player.connected)
+      .map((player) => player.id),
+  );
+  const imposterId = pickImposter(turnOrder, room.state.imposterId);
+  const entry = drawWord(room.deck);
+
+  const started = startRound(room.state, {
+    roundNumber: room.state.roundNumber + 1,
+    turnOrder,
+    imposterId,
+    word: entry.word,
+    category: entry.category,
+  });
+  if (!started.ok) {
+    return started;
+  }
+
+  const drawing = beginDrawing(started.data);
+  if (!drawing.ok) {
+    return drawing;
+  }
+
+  // enterPhase arms the DRAWING timer and broadcasts the state.
+  enterPhase(room, drawing.data);
+  return { ok: true, data: undefined };
 }
 
 io.on("connection", (socket) => {
@@ -200,6 +242,7 @@ io.on("connection", (socket) => {
     ack({ ok: true, data: { code: room.code } });
     io.to(room.code).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
   });
+
   socket.on(CLIENT_EVENTS.JOIN_ROOM, (payload, rawAck) => {
     const ack = safeAck<{ code: RoomCode }>(rawAck);
 
@@ -231,6 +274,7 @@ io.on("connection", (socket) => {
 
     ack({ ok: true, data: { code: room.code } });
     io.to(room.code).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
+    socket.emit(SERVER_EVENTS.STATE_UPDATED, serialiseStateFor(playerId, room));
   });
 
   socket.on(CLIENT_EVENTS.READY, (payload) => {
@@ -267,18 +311,7 @@ io.on("connection", (socket) => {
       return;
     }
 
-    // Pick imposter and turn order randomly.
-    const turnOrder = shuffled(room.players.map((player) => player.id));
-    const imposterId = pickImposter(turnOrder, room.state.imposterId);
-    const entry = drawWord(room.deck);
-
-    const started = startRound(room.state, {
-      roundNumber: room.state.roundNumber + 1,
-      turnOrder,
-      imposterId,
-      word: entry.word,
-      category: entry.category,
-    });
+    const started = beginRound(room);
     if (!started.ok) {
       console.warn(
         `[room ${roomCode}] start_game rejected: ${started.message}`,
@@ -286,21 +319,10 @@ io.on("connection", (socket) => {
       ack({ ok: false, code: started.code, message: started.message });
       return;
     }
-
-    const drawing = beginDrawing(started.data);
-    if (!drawing.ok) {
-      console.warn(
-        `[room ${roomCode}] begin_drawing rejected after start_round: ${drawing.message}`,
-      );
-      ack({ ok: false, code: drawing.code, message: drawing.message });
-      return;
-    }
     ack({ ok: true, data: undefined });
-    // enterPhase arms the DRAWING timer and broadcasts the state.
-    enterPhase(room, drawing.data);
   });
 
-  socket.on(CLIENT_EVENTS.STROKE_END, () => {
+  socket.on(CLIENT_EVENTS.STROKE_END, (payload) => {
     const { playerId, roomCode } = socket.data;
     if (!playerId || !roomCode) {
       return;
@@ -308,6 +330,10 @@ io.on("connection", (socket) => {
 
     const room = getRoom(roomCode);
     if (!room) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "ROOM_NOT_FOUND",
+        message: "Could not locate room.",
+      });
       return;
     }
 
@@ -318,6 +344,18 @@ io.on("connection", (socket) => {
       });
       return;
     }
+
+    const stroke = room.state.strokes.at(-1);
+
+    if (stroke?.playerId !== playerId) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "NOT_YOUR_TURN",
+        message: "It is not your turn to draw.",
+      });
+      return;
+    }
+
+    stroke.points = stroke.points.concat(payload.points);
 
     // Finishing a stroke ends the turn early.
     const advanced = advanceTurn(room.state);
@@ -421,6 +459,100 @@ io.on("connection", (socket) => {
     if (typeof ack === "function") {
       ack(Date.now());
     }
+  });
+
+  socket.on(CLIENT_EVENTS.STROKE_START, (payload) => {
+    const { playerId, roomCode } = socket.data;
+    if (roomCode == null) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "ROOM_NOT_FOUND",
+        message: "Not in a room.",
+      });
+      return;
+    }
+    const room = getRoom(roomCode);
+
+    const colour = room?.players.find((x) => x.id == playerId)?.colour;
+
+    if (playerId == null || colour == null || room == null) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "ROOM_NOT_FOUND",
+        message: "Not in a room.",
+      });
+      return;
+    }
+
+    if (
+      room?.state.turnOrder[room?.state.turnIndex] != playerId ||
+      room?.state.phase !== "DRAWING"
+    ) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "NOT_YOUR_TURN",
+        message: "Not your turn.",
+      });
+      return;
+    }
+
+    if (room.state.strokeSubmittedThisTurn) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "NOT_YOUR_TURN",
+        message: "This turn already has a stroke.",
+      });
+      return;
+    }
+
+    const stroke: Stroke = {
+      id: randomUUID(),
+      playerId: playerId,
+      colour: colour,
+      points: [payload.point],
+    };
+    room.state.strokes.push(stroke);
+    room.state.strokeSubmittedThisTurn = true;
+    broadcastState(roomCode, room);
+  });
+
+  socket.on(CLIENT_EVENTS.STROKE_POINT, (payload) => {
+    const { playerId, roomCode } = socket.data;
+    if (roomCode == null) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "ROOM_NOT_FOUND",
+        message: "Not in a room.",
+      });
+      return;
+    }
+    const room = getRoom(roomCode);
+
+    const colour = room?.players.find((x) => x.id == playerId)?.colour;
+
+    if (playerId == null || colour == null || room == null) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "ROOM_NOT_FOUND",
+        message: "Not in a room.",
+      });
+      return;
+    }
+
+    if (
+      room?.state.turnOrder[room?.state.turnIndex] != playerId ||
+      room?.state.phase !== "DRAWING"
+    ) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "NOT_YOUR_TURN",
+        message: "Not your turn.",
+      });
+      return;
+    }
+
+    const stroke = room.state.strokes.at(-1);
+
+    if (stroke?.playerId !== playerId) {
+      return;
+    }
+
+    stroke.points = stroke.points.concat(payload.points);
+
+    broadcastState(roomCode, room);
   });
 
   socket.on("disconnect", () => {

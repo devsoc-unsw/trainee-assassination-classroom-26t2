@@ -3,8 +3,10 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 import drawmeleonLogo from "@/public/images/landing-page/drawmeleon-logo.png";
-import { CLIENT_EVENTS, SERVER_EVENTS } from "@/shared/events";
+import { CLIENT_EVENTS } from "@/shared/events";
 import type { PublicRoom } from "@/shared/types";
+import { DrawingRoundLive } from "./components/drawing-round/DrawingRoundLive";
+import { useGameState } from "./components/drawing-round/useGameState";
 import { LobbyRoom } from "./components/lobby/LobbyRoom";
 import {
   clearStoredSession,
@@ -15,8 +17,13 @@ import {
 } from "./lib/identity";
 import { useSocket } from "./socket-provider";
 
-export function Lobby() {
+interface LobbyProps {
+  room: PublicRoom | null;
+}
+
+export function Lobby({ room }: LobbyProps) {
   const socket = useSocket();
+  const gameState = useGameState(socket);
   const playerId = useSyncExternalStore(subscribe, getPlayerId, () => "");
   const storedSession = useSyncExternalStore(
     subscribe,
@@ -26,7 +33,6 @@ export function Lobby() {
 
   const [nickname, setNickname] = useState("");
   const [roomCode, setRoomCode] = useState("");
-  const [room, setRoom] = useState<PublicRoom | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -51,13 +57,6 @@ export function Lobby() {
     );
   }, [socket, playerId, storedSession]);
 
-  useEffect(() => {
-    const handleRoomUpdated = (publicRoom: PublicRoom) => setRoom(publicRoom);
-    socket.on(SERVER_EVENTS.ROOM_UPDATED, handleRoomUpdated);
-    return () => {
-      socket.off(SERVER_EVENTS.ROOM_UPDATED, handleRoomUpdated);
-    };
-  }, [socket]);
 
   function handleCreate() {
     setError(null);
@@ -85,20 +84,29 @@ export function Lobby() {
     );
   }
 
-  if (playerId === "") {
-    return (
-      <main className="flex flex-1 items-center justify-center">
-        <p>Loading…</p>
-      </main>
-    );
-  }
-
   const attemptingRejoin =
     storedSession !== null && room === null && error === null;
   if (attemptingRejoin) {
     return (
       <main className="flex flex-1 items-center justify-center">
         <p>Rejoining room {storedSession.roomCode}…</p>
+      </main>
+    );
+  }
+
+  // The server decides when the game leaves the lobby; this only follows the
+  // phase it is told. Only DRAWING has a screen so far — the phases after it
+  // are T31 and T32, and until they exist the room stays on the lobby view
+  // rather than being shown a blank one.
+  if (room && gameState?.phase === "DRAWING") {
+    return (
+      <main className="flex w-full flex-1 flex-col">
+        <DrawingRoundLive
+          room={room}
+          playerId={playerId}
+          socket={socket}
+          state={gameState}
+        />
       </main>
     );
   }
