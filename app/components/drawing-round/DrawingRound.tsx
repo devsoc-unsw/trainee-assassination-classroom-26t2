@@ -375,7 +375,6 @@ export default function DrawingRound({
                 <AvatarBlob
                   colour={player.colour}
                   initial={player.nickname.charAt(0).toUpperCase() || "?"}
-                  className="avatar-fluid"
                 />
                 <span className="sr-only">
                   {player.nickname}
