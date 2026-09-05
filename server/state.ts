@@ -400,12 +400,6 @@ export function isGameOver(state: GameState): boolean {
 
 function applyRoundResult(state: GameState): Scores {
   const winner = state.roundWinner ?? resolveRoundWinner(state);
-  console.log(
-    `[round result] round=${state.roundNumber} winner=${winner} ` +
-      `word=${JSON.stringify(state.word)} ` +
-      `guess=${JSON.stringify(state.finalGuess?.text ?? "")} ` +
-      `caught=${state.accusedId !== null && state.accusedId === state.imposterId}`,
-  );
   const scores: Scores = {
     groupRoundsWon: state.scores.groupRoundsWon,
     imposterRoundsWon: state.scores.imposterRoundsWon,
