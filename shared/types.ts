@@ -1,6 +1,3 @@
-export const CANVAS_WIDTH = 800;
-export const CANVAS_HEIGHT = 600;
-
 export const MIN_PLAYERS = 4;
 export const MAX_PLAYERS = 8;
 
@@ -28,9 +25,9 @@ export interface Player {
 }
 
 export interface Point {
-  // 0..CANVAS_WIDTH
+  // Normalised 0..1, fraction of the canvas element's rendered width.
   x: number;
-  // 0..CANVAS_HEIGHT
+  // Normalised 0..1, fraction of the canvas element's rendered height.
   y: number;
 }
 
