@@ -22,7 +22,9 @@ import {
   TEAMMATE_CANVAS_WIDTH,
   type RosterPlayer,
 } from "./geometry";
-import type { PlayerId, PlayerSecret } from "@/shared/types";
+import type { PlayerId, PlayerSecret, PublicGameState, PublicRoom } from "@/shared/types";
+import { HomeButton } from "../HomeButton";
+import { AppSocket } from "@/app/socket-provider";
 
 // Geometry specific to the drawing round. The roster / board / clock coordinates
 // it shares with the voting round live in ./geometry.
@@ -85,6 +87,9 @@ interface DrawingRoundProps {
   // Real play passes teammates' <Canvas>; the offline preview passes a blank
   // placeholder. Either way this component only sizes and frames it.
   board: ReactNode;
+  socket: AppSocket;
+  setRoomState: (room: PublicRoom | null) => void;
+  setGameState: (room: PublicGameState | null) => void;
 }
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
@@ -100,7 +105,7 @@ export default function DrawingRound({
   pass,
   muted,
   onToggleMuted,
-  board,
+  board,socket,setRoomState,setGameState
 }: DrawingRoundProps) {
   const boardOuterRef = useRef<HTMLDivElement>(null);
 
@@ -385,6 +390,11 @@ export default function DrawingRound({
               }}
             />
           )}
+        </div>
+
+          <div className="absolute left-[-33%] top-[87%] w-full text-center font-bold tracking-wide">
+        <HomeButton 
+        setGameState={setGameState} setRoomState={setRoomState} socket={socket} />
         </div>
 
         {/* Whose turn it is. Sits under the board in the frame's bottom margin. */}

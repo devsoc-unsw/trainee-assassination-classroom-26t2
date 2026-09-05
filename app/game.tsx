@@ -4,10 +4,11 @@ import { Canvas } from "./components/game/Canvas";
 import { useSyncExternalStore } from "react";
 import type { PublicGameState, PublicRoom } from "@/shared/types";
 import { getPlayerId, subscribe } from "./lib/identity";
-import { useSocket } from "./socket-provider";
 import { VotingRoundScreen } from "./components/voting/VotingRoundScreen";
 import { ImposterGuess } from "./components/game/ImposterGuess";
-import { HomeButton } from "./components/game/HomeButton";
+import { HomeButton } from "./components/HomeButton";
+import { AppSocket } from "./socket-provider";
+import { ReplayButton } from "./components/game/ReplayButton";
 import { SecretDisplay } from "./components/lobby/SecretDisplay";
 import { RoundReveal } from "./components/game/RoundReveal";
 import { DrawingRoundScreen } from "./components/drawing-round/DrawingRoundScreen";
@@ -15,9 +16,17 @@ import { DrawingRoundScreen } from "./components/drawing-round/DrawingRoundScree
 interface GameProps {
   room: PublicRoom;
   gameState: PublicGameState;
+  socket: AppSocket;
+  setRoomState: (room: PublicRoom | null) => void;
+  setGameState: (room: PublicGameState | null) => void;
 }
-export function Game({ room, gameState }: GameProps) {
-  const socket = useSocket();
+export function Game({
+  room,
+  gameState,
+  socket,
+  setRoomState,
+  setGameState,
+}: GameProps) {
   const playerId = useSyncExternalStore(subscribe, getPlayerId, () => "");
 
   const playerUp = room.players.find(
@@ -32,6 +41,8 @@ export function Game({ room, gameState }: GameProps) {
   if (gameState.phase === "DRAWING") {
     return (
       <DrawingRoundScreen
+        setRoomState={setRoomState}
+        setGameState={setGameState}
         room={room}
         gameState={gameState}
         playerId={playerId}
@@ -69,7 +80,7 @@ export function Game({ room, gameState }: GameProps) {
           />
 
           <ImposterGuess socket={socket} />
-          <HomeButton socket={socket} />
+          <HomeButton setGameState = {setGameState} setRoomState = {setRoomState} socket={socket} />
         </main>
       </>
     );
@@ -83,7 +94,11 @@ export function Game({ room, gameState }: GameProps) {
           playerId={playerId}
           socket={socket}
         />
-        <HomeButton socket={socket} />
+        <HomeButton
+          setGameState={setGameState}
+          setRoomState={setRoomState}
+          socket={socket}
+        />
       </>
     );
   } else if (gameState.phase == "SCORING") {
@@ -92,7 +107,14 @@ export function Game({ room, gameState }: GameProps) {
     content = (
       <>
         <h1>Game Over!</h1>
-        <HomeButton socket={socket} />
+        <div style={{ display: "inline-flex" }}>
+          <HomeButton
+            setGameState={setGameState}
+            setRoomState={setRoomState}
+            socket={socket}
+          />
+          <ReplayButton socket={socket} />
+        </div>
       </>
     );
   }

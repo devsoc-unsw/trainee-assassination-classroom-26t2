@@ -4,7 +4,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 import drawmeleonLogo from "@/public/images/landing-page/drawmeleon-logo.png";
 import { CLIENT_EVENTS } from "@/shared/events";
-import type { PublicRoom } from "@/shared/types";
+import type { PublicGameState, PublicRoom } from "@/shared/types";
 import { LobbyRoom } from "./components/lobby/LobbyRoom";
 import {
   clearStoredSession,
@@ -13,14 +13,16 @@ import {
   setStoredSession,
   subscribe,
 } from "./lib/identity";
-import { useSocket } from "./socket-provider";
+import { AppSocket } from "./socket-provider";
 
 interface LobbyProps {
   room: PublicRoom | null;
+  socket: AppSocket;
+  setRoomState: (room: PublicRoom | null) => void;
+  setGameState: (room: PublicGameState | null) => void;
 }
 
-export function Lobby({ room }: LobbyProps) {
-  const socket = useSocket();
+export function Lobby({ room, socket, setRoomState, setGameState }: LobbyProps) {
   const playerId = useSyncExternalStore(subscribe, getPlayerId, () => "");
   const storedSession = useSyncExternalStore(
     subscribe,
@@ -95,7 +97,7 @@ export function Lobby({ room }: LobbyProps) {
   if (room) {
     return (
       <main className="flex w-full max-w-6xl flex-1 flex-col items-center py-12 px-6 sm:py-16 sm:px-8 md:py-16 md:px-12">
-        <LobbyRoom room={room} playerId={playerId} socket={socket} />
+        <LobbyRoom setRoomState = {setRoomState} setGameState={setGameState} room={room} playerId={playerId} socket={socket} />
       </main>
     );
   }

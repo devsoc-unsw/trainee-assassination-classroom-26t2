@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { Canvas } from "@/app/components/game/Canvas";
-import { HomeButton } from "@/app/components/game/HomeButton";
+import { HomeButton } from "@/app/components/HomeButton";
 import {
   isSoundMuted,
   setSoundMuted,
@@ -18,6 +18,8 @@ interface DrawingRoundScreenProps {
   gameState: PublicGameState;
   playerId: PlayerId;
   socket: AppSocket;
+  setRoomState: (room: PublicRoom | null) => void;
+  setGameState: (room: PublicGameState | null) => void;
 }
 
 const ROUND_MUSIC_SRC = "/sounds/round-loop.mp3";
@@ -30,6 +32,8 @@ export function DrawingRoundScreen({
   gameState,
   playerId,
   socket,
+  setRoomState,
+  setGameState,
 }: DrawingRoundScreenProps) {
   const muted = useSyncExternalStore(
     subscribeSoundMuted,
@@ -103,11 +107,11 @@ export function DrawingRoundScreen({
             strokes={gameState.strokes}
           />
         }
+        socket={socket}
+        setRoomState={setRoomState}
+        setGameState={setGameState}
       />
       {/* Keep the room reachable mid-round, same as the other in-round phases. */}
-      <div className="fixed left-4 top-4 z-10">
-        <HomeButton socket={socket} />
-      </div>
     </div>
   );
 }

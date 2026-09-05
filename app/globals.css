@@ -111,6 +111,27 @@ body {
   aspect-ratio: 1200 / 388;
 }
 
+.frame-home-button {
+  background-image: url("/images/misc/home.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+
+  aspect-ratio: 1200 / 388;
+
+}
+
+.frame-restart-button {
+  background-image: url("/images/misc/restart.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+
+  aspect-ratio: 1200 / 388;
+
+}
+
+
 .frame-ready {
   background-image: url("/images/lobby/ready-cross.png");
   background-repeat: no-repeat;
