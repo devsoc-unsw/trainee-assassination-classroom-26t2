@@ -56,6 +56,7 @@ export function createInitialGameState(): GameState {
     pass: 1,
     turnIndex: 0,
     turnOrder: [],
+    strokeSubmittedThisTurn: false,
     word: "",
     category: "",
     imposterId: null,
@@ -63,6 +64,7 @@ export function createInitialGameState(): GameState {
     votes: [],
     accusedId: null,
     finalGuess: null,
+    roundWinner: null,
     scores: { groupRoundsWon: 0, imposterRoundsWon: 0, perPlayer: {} },
     phaseEndsAt: null,
   };

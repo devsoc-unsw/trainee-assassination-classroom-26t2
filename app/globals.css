@@ -159,6 +159,116 @@ body {
   background-image: url("/images/lobby/player-card-red.png");
 }
 
+/* The drawing round's frame: the roster panel and the board, drawn as one
+   16:9 sheet. A background rather than next/image because the optimiser
+   re-encodes this hand-drawn line art down to a fraction of its resolution,
+   which softens every wobble in the ink — and because a `fill` image inside a
+   container-query container measures as zero-height on mount. */
+.frame-drawing-layout {
+  background-image: url("/images/landing-page/drawing-base-layout%20(2).png");
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: center;
+}
+
+/* Drawing round art.
+   Every drawing-round asset is a small drawing sitting on a much larger
+   transparent canvas — an arrow is 600x326 of ink inside a 2360x1640 file — so
+   drawing the file whole would leave the ink at a quarter of its box and
+   impossible to line up against the layout. Each class below crops to the ink's
+   measured pixel bounds instead: background-size is file/ink, and
+   background-position is inkOffset / (file - ink), which is the percentage that
+   lands the ink's edge on the box's edge. aspect-ratio matches the ink so it is
+   never stretched. Same background-image approach as the .frame-* rules above,
+   just cropped. Set one dimension (usually width) and the other follows. */
+.art-note,
+.art-pencil {
+  background-repeat: no-repeat;
+}
+
+/* ink 600x326 at (702,574) of 2360x1640.
+
+   The only asset here cropped as a mask rather than a background image. The
+   seven arrow files are pixel-identical apart from their ink colour, and there
+   was never an eighth in the host's brown (#9a6324) — so with eight players the
+   host sat there with no arrow at all. Masking one file and painting it with
+   the player's own colour draws every player's arrow from a single asset, and
+   guarantees the arrow matches the avatar rather than tracking it through a
+   lookup table. The colour is set inline, per player. */
+.art-arrow {
+  aspect-ratio: 600 / 326;
+  -webkit-mask-image: url("/images/drawing-round/red-arrow.png");
+  mask-image: url("/images/drawing-round/red-arrow.png");
+  -webkit-mask-size: 393.333% 503.067%;
+  mask-size: 393.333% 503.067%;
+  -webkit-mask-position: 39.886% 43.684%;
+  mask-position: 39.886% 43.684%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+/* ink 887x757 at (450,865) of 1640x2360.
+
+   The clock is drawn lying on its side in both files: the bells sit against the
+   ink's right edge and the feet against its left, where an upright clock wears
+   them top and bottom. It is turned a quarter turn anticlockwise here rather
+   than in the art, and on a pseudo-element so the countdown inside .art-clock
+   stays the right way up with it.
+
+   So the box itself is the upright 757:887, and the ::before is laid out at the
+   box's *height* (117.173% of its width) with the ink's own 887:757 aspect —
+   which is exactly what a -90deg turn needs to land back over the box. If the
+   art is ever re-exported upright, this collapses back to a plain
+   background-image on .art-clock with aspect-ratio 757 / 887. */
+.art-clock {
+  aspect-ratio: 757 / 887;
+}
+
+.art-clock::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 117.173%;
+  aspect-ratio: 887 / 757;
+  transform: translate(-50%, -50%) rotate(-90deg);
+  background-repeat: no-repeat;
+  background-size: 184.893% 311.757%;
+  background-position: 59.761% 53.961%;
+  background-image: url("/images/drawing-round/countdown-blue.png");
+}
+
+/* The round runs down the blue clock and finishes on the red one. */
+.art-clock-urgent::before {
+  background-image: url("/images/drawing-round/countdown-red%20(1).png");
+}
+
+/* ink 447x225 at (701,344) of 1920x1080 */
+.art-note {
+  aspect-ratio: 447 / 225;
+  background-size: 429.53% 480%;
+  background-position: 47.59% 40.234%;
+  background-image: url("/images/drawing-round/note.png");
+}
+
+/* ink 132x901 at (559,876) of 1640x2360; the graphite tip is at 58% across
+   the ink's bottom edge, which is what DrawingRoundMockup anchors to the
+   drawing point. */
+.art-pencil {
+  aspect-ratio: 132 / 901;
+  background-size: 1242.424% 261.931%;
+  background-position: 37.069% 60.041%;
+  background-image: url("/images/drawing-round/draw-pencil2.png");
+}
+
+/* Roster avatars scale with the layout box instead of the fixed AvatarBlob
+   presets, so they stay proportional to the panel at any viewport size. */
+.avatar-fluid {
+  height: var(--avatar-size);
+  width: var(--avatar-size);
+  font-size: calc(var(--avatar-size) * 0.42);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-boil {
     animation: none;
