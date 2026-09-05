@@ -78,7 +78,7 @@ export function startRound(
 ): Result<GameState> {
   return commitTransition(
     state,
-    ["LOBBY", "SCORING"],
+    ["LOBBY"],
     "ROUND_STARTING",
     "start_round",
     () => ({

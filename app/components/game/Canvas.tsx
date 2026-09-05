@@ -5,7 +5,7 @@ import { PlayerId, PublicRoom, Point, Stroke } from "@/shared/types";
 import { useEffect, useRef } from "react";
 
 const STROKE_WIDTH = 2;
-const UPDATES_PER_SEC = 60; //TODO: Make this 60 at some point
+const UPDATES_PER_SEC = 60;
 
 let ctx: null | CanvasRenderingContext2D = null;
 
