@@ -4,7 +4,8 @@ import { Canvas } from "@/app/components/game/Canvas";
 import { HomeButton } from "@/app/components/game/HomeButton";
 import type { AppSocket } from "@/app/socket-provider";
 import type { PlayerId, PublicGameState, PublicRoom } from "@/shared/types";
-import DrawingRound, { type RosterPlayer } from "./DrawingRound";
+import DrawingRound from "./DrawingRound";
+import type { RosterPlayer } from "./geometry";
 
 interface DrawingRoundScreenProps {
   room: PublicRoom;

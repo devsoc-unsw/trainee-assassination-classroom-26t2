@@ -8,38 +8,33 @@ import {
   type ReactNode,
 } from "react";
 import { AvatarBlob } from "@/app/components/lobby/AvatarBlob";
-import {
-  SECRET_DISPLAY_IMPOSTER_HEIGHT,
-  SECRET_DISPLAY_WORD_CARD_LEFT_OFFSET,
-  SECRET_DISPLAY_WORD_HEIGHT,
-  SecretDisplay,
-} from "@/app/components/lobby/SecretDisplay";
+import { FloatingSecretCard } from "@/app/components/game/FloatingSecretCard";
 import { useCountdown } from "@/app/lib/clock";
 import { useFitFontSize } from "@/app/lib/useFitFontSize";
+import {
+  BOARD,
+  CLOCK,
+  CLOCK_FACE,
+  HEIGHT_TO_WIDTH,
+  INK,
+  ROSTER,
+  TEAMMATE_CANVAS_HEIGHT,
+  TEAMMATE_CANVAS_WIDTH,
+  type RosterPlayer,
+} from "./geometry";
 import type { PlayerId, PlayerSecret } from "@/shared/types";
 
-// Geometry of drawing-base-layout (2).png, in % of the layout box — sampled
-// from the art's own pixels since the hand-drawn frame isn't evenly spaced.
-const ROSTER = { left: 10.73, top: 12.96, width: 14.01, height: 72.04 };
-const BOARD = { left: 26.35, top: 13.33, width: 61.04, height: 72.5 };
-
-// The layout box is locked to 16:9, so a height % converts to this many
-// width % (cqw), letting a roster row height compare against cqw sizes.
-const HEIGHT_TO_WIDTH = 9 / 16;
-
+// Geometry specific to the drawing round. The roster / board / clock coordinates
+// it shares with the voting round live in ./geometry.
+//
 // The arrows sit out in the background margin to the left of the roster, tips
 // stopping just short of it — one per player, colour-matched to their avatar.
 const ARROW = { left: 4.9, width: 5.3 };
 
-// Clock and note hang in the top margin, note flush with the board's right
-// edge. Tops differ because the art shapes differ: these centre the two
-// rather than aligning their top edges (which would drop the clock low).
-const CLOCK = { right: 22.4, top: 0.32, width: 4.6 };
+// Note hangs in the top margin, flush with the board's right edge.
 const NOTE = { right: 12.66, top: 0.8, width: 8.8 };
 
-// Cream interiors of the clock/note art, as % of their own box. The clock's
-// face accounts for the 90° turn globals.css applies to that art.
-const CLOCK_FACE = { left: 14.27, top: 26.72, width: 72.79, height: 62.12 };
+// Cream interior of the note art, as % of its own box.
 const NOTE_BODY = { left: 11.4, top: 2.2, width: 79.9, height: 95.1 };
 
 // Pencil is anchored and rotated about its graphite tip (tipX/tipY, measured
@@ -49,16 +44,9 @@ const PENCIL = { length: 8, tipX: 58, tipY: 100, angle: 34 };
 // Where the design rests the pencil while nobody is drawing, in board percent.
 const PENCIL_PARK = { x: 69.7, y: 59.8 };
 
-// Canvas.tsx renders at a hardcoded 800x600 with no override prop; mirrored
-// here to compute the scale that fills the board slot — keep in sync if that
-// changes, since there's nothing to import that would do it automatically.
-const TEAMMATE_CANVAS_WIDTH = 800;
-const TEAMMATE_CANVAS_HEIGHT = 600;
-
 // A turn is 20s (server/timers.ts PHASE_DURATIONS_MS.DRAWING), so the clock
 // turns red for the last quarter of it rather than the 10s the 60s mockup used.
 const URGENT_MS = 5_000;
-const INK = "#3f3730";
 
 // Note text size: shrinks by measuring the real element's scrollWidth/Height
 // rather than guessing a character width, which clipped on long words like
@@ -66,12 +54,6 @@ const INK = "#3f3730";
 const NOTE_MAX_CQW = 1.2;
 const NOTE_MIN_CQW = 0.35;
 const NOTE_STEP_CQW = 0.05;
-
-export interface RosterPlayer {
-  id: PlayerId;
-  nickname: string;
-  colour: string;
-}
 
 interface DrawingRoundProps {
   // In turn order, so the roster reads top to bottom as the rotation.
@@ -91,7 +73,6 @@ interface DrawingRoundProps {
 }
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
-const SECRET_CARD_GAP = 8;
 
 export default function DrawingRound({
   players,
@@ -172,7 +153,6 @@ export default function DrawingRound({
   const currentDrawer =
     players.find((player) => player.id === currentDrawerId) ?? null;
 
-  const isImposter = "isImposter" in secret;
   const noteText = `ROUND ${roundNumber}`;
   const noteRef = useRef<HTMLSpanElement>(null);
   const noteFontSize = useFitFontSize(noteRef, noteText, {
@@ -183,44 +163,6 @@ export default function DrawingRound({
   });
 
   const frameRef = useRef<HTMLDivElement>(null);
-  const [secretCardPos, setSecretCardPos] = useState<{
-    left: number;
-    top: number;
-  } | null>(null);
-
-  useEffect(() => {
-    const maybeFrame = frameRef.current;
-    if (!maybeFrame) {
-      return;
-    }
-    const frame = maybeFrame;
-
-    function recompute() {
-      const rect = frame.getBoundingClientRect();
-      const rosterCentre =
-        rect.left + ((ROSTER.left + ROSTER.width / 2) / 100) * rect.width;
-      const left = isImposter
-        ? rosterCentre
-        : rosterCentre - SECRET_DISPLAY_WORD_CARD_LEFT_OFFSET;
-      const height = isImposter
-        ? SECRET_DISPLAY_IMPOSTER_HEIGHT
-        : SECRET_DISPLAY_WORD_HEIGHT;
-      const top = Math.max(
-        SECRET_CARD_GAP,
-        rect.top - height - SECRET_CARD_GAP,
-      );
-      setSecretCardPos({ left, top });
-    }
-
-    recompute();
-    const observer = new ResizeObserver(recompute);
-    observer.observe(frame);
-    window.addEventListener("resize", recompute);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", recompute);
-    };
-  }, [isImposter]);
 
   const rowHeight = ROSTER.height / Math.max(1, players.length);
   // Big enough to read, but never wider than the panel nor taller than its row.
@@ -355,18 +297,7 @@ export default function DrawingRound({
           </span>
         </div>
 
-        {secretCardPos && (
-          <div
-            className="fixed z-20"
-            style={{
-              left: `${secretCardPos.left}px`,
-              top: `${secretCardPos.top}px`,
-              transform: "translateX(-50%)",
-            }}
-          >
-            <SecretDisplay secret={secret} />
-          </div>
-        )}
+        <FloatingSecretCard frameRef={frameRef} secret={secret} />
 
         {/* Teammates' <Canvas>, scaled to fill this slot, pencil on top. */}
         <div
