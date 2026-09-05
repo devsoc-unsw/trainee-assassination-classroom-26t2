@@ -5,12 +5,7 @@ import type {
   ClientToServerEvents,
   ServerToClientEvents,
 } from "../shared/events";
-import type {
-  PlayerId,
-  Room,
-  RoomCode,
-  Stroke,
-} from "../shared/types";
+import type { PlayerId, Room, RoomCode, Stroke } from "../shared/types";
 import { createPhaseLoop } from "./phase-loop";
 import {
   canStartGame,
@@ -475,6 +470,17 @@ io.on("connection", (socket) => {
       socket.emit(SERVER_EVENTS.ERROR, {
         code: "NOT_YOUR_TURN",
         message: "Not your turn.",
+      });
+      return;
+    }
+
+    const expectedStrokesBeforeThisTurn =
+      (room.state.pass - 1) * room.state.turnOrder.length +
+      room.state.turnIndex;
+    if (room.state.strokes.length !== expectedStrokesBeforeThisTurn) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "NOT_YOUR_TURN",
+        message: "This turn already has a stroke.",
       });
       return;
     }
