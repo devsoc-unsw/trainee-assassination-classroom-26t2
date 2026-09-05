@@ -50,11 +50,9 @@ export function StartButton({
         onClick={handleClick}
         disabled={disabled}
         title={reason ?? undefined}
-        className="start-button w-64 animate-boil frame-start-game disabled:cursor-not-allowed disabled:opacity-40"
+        className="start-button w-64 animate-boil frame-start-game disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
       >
-        <span className="sr-only">
-          {starting ? "Starting…" : "Start game"}
-        </span>
+        <span className="sr-only">{starting ? "Starting…" : "Start game"}</span>
       </button>
       {reason && <p className="text-xs text-black/60">{reason}</p>}
       {error && <p className="text-xs text-red-600">{error}</p>}
