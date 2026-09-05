@@ -5,7 +5,7 @@ import type { AppSocket } from "@/app/socket-provider";
 import { CLIENT_EVENTS } from "@/shared/events";
 import type { Result } from "@/shared/events";
 import { MAX_PLAYERS, MIN_PLAYERS } from "@/shared/types";
-import type { PlayerId, PublicRoom } from "@/shared/types";
+import type { PlayerId, PublicGameState, PublicRoom } from "@/shared/types";
 import { CustomizeAvatarModal } from "./CustomizeAvatarModal";
 import { PlayerCard } from "./PlayerCard";
 import { PlayerTally } from "./PlayerTally";
@@ -17,9 +17,17 @@ interface LobbyRoomProps {
   room: PublicRoom;
   playerId: PlayerId;
   socket: AppSocket;
+  setRoomState: (room: PublicRoom | null) => void;
+  setGameState: (room: PublicGameState | null) => void;
 }
 
-export function LobbyRoom({ room, playerId, socket }: LobbyRoomProps) {
+export function LobbyRoom({
+  room,
+  playerId,
+  socket,
+  setRoomState,
+  setGameState,
+}: LobbyRoomProps) {
   const [customizeOpen, setCustomizeOpen] = useState(false);
 
   const isHost = room.hostId === playerId;
@@ -70,7 +78,11 @@ export function LobbyRoom({ room, playerId, socket }: LobbyRoomProps) {
         allReady={allReady}
         onStart={handleStart}
       />
-      <HomeButton socket={socket} />
+      <HomeButton
+        setGameState={setGameState}
+        setRoomState={setRoomState}
+        socket={socket}
+      />
 
       {me && (
         <CustomizeAvatarModal

@@ -1,7 +1,7 @@
 "use client";
 
 import { Canvas } from "@/app/components/game/Canvas";
-import { HomeButton } from "@/app/components/game/HomeButton";
+import { HomeButton } from "@/app/components/HomeButton";
 import type { AppSocket } from "@/app/socket-provider";
 import type { PlayerId, PublicGameState, PublicRoom } from "@/shared/types";
 import DrawingRound, { type Hint, type RosterPlayer } from "./DrawingRound";
@@ -11,6 +11,8 @@ interface DrawingRoundScreenProps {
   gameState: PublicGameState;
   playerId: PlayerId;
   socket: AppSocket;
+  setRoomState: (room: PublicRoom | null) => void;
+  setGameState: (room: PublicGameState | null) => void;
 }
 
 // Pure prop-mapping from Game.tsx's state onto DrawingRound and Canvas — no
@@ -20,6 +22,8 @@ export function DrawingRoundScreen({
   gameState,
   playerId,
   socket,
+  setRoomState,
+  setGameState,
 }: DrawingRoundScreenProps) {
   const byId = new Map(room.players.map((player) => [player.id, player]));
 
@@ -68,7 +72,7 @@ export function DrawingRoundScreen({
       />
       {/* Keep the room reachable mid-round, same as the other in-round phases. */}
       <div className="fixed left-4 top-4 z-10">
-        <HomeButton socket={socket} />
+        <HomeButton setGameState={setGameState} setRoomState={setRoomState} socket={socket} />
       </div>
     </div>
   );

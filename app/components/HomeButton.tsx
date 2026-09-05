@@ -7,12 +7,15 @@ import { PublicGameState, PublicRoom } from "@/shared/types";
 
 interface HomeButtonProps {
   socket: AppSocket;
-  setRoomState: (room: PublicRoom|null)=>void;
-  setGameState: (room: PublicGameState|null)=>void;
+  setRoomState: (room: PublicRoom | null) => void;
+  setGameState: (room: PublicGameState | null) => void;
 }
 
-function goHome(socket: AppSocket, setRoomState: (room: PublicRoom|null)=>void,
-  setGameState: (room: PublicGameState|null)=>void): Promise<Result<void>> {
+function goHome(
+  socket: AppSocket,
+  setRoomState: (room: PublicRoom | null) => void,
+  setGameState: (room: PublicGameState | null) => void,
+): Promise<Result<void>> {
   return new Promise((resolve) => {
     clearStoredSession();
     clearPlayerId();
@@ -22,14 +25,17 @@ function goHome(socket: AppSocket, setRoomState: (room: PublicRoom|null)=>void,
   });
 }
 
-export function HomeButton({ socket, setRoomState, setGameState }: HomeButtonProps) {
+export function HomeButton({
+  socket,
+  setRoomState,
+  setGameState,
+}: HomeButtonProps) {
   return (
-      <button
-        type="button"
-        onClick={() => goHome(socket, setRoomState, setGameState)}
-        
-      >
-        HOME
-      </button>
+    <button
+      type="button"
+      onClick={() => goHome(socket, setRoomState, setGameState)}
+    >
+      HOME
+    </button>
   );
 }

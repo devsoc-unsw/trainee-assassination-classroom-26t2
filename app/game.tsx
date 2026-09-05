@@ -51,6 +51,8 @@ export function Game({
   if (gameState.phase === "DRAWING") {
     return (
       <DrawingRoundScreen
+        setRoomState={setRoomState}
+        setGameState={setGameState}
         room={room}
         gameState={gameState}
         playerId={playerId}

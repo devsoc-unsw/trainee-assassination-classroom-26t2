@@ -20,7 +20,7 @@ export const CLIENT_EVENTS = {
   START_GAME: "start_game",
   TIME_SYNC: "time_sync",
   LEAVE_ROOM: "leave_room",
-  REPLAY: "replay"
+  REPLAY: "replay",
 } as const;
 
 export const SERVER_EVENTS = {
@@ -78,13 +78,13 @@ export interface ClientToServerEvents {
   start_game: (ack: (result: Result<void>) => void) => void;
 
   time_sync: (ack: (serverTime: number) => void) => void;
-  replay: (ack: (result: Result<void>)=>void)=>void;
-  leave_room: (ack: (result: Result<void>)=>void)=>void;
+  replay: (ack: (result: Result<void>) => void) => void;
+  leave_room: (ack: (result: Result<void>) => void) => void;
 }
 
 export interface ServerToClientEvents {
   connected: (payload: { socketId: string }) => void;
-  room_updated: (room: PublicRoom) => void;
-  state_updated: (state: PublicGameState) => void;
+  room_updated: (room: PublicRoom | null) => void;
+  state_updated: (state: PublicGameState | null) => void;
   error: (error: SocketError) => void;
 }

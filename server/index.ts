@@ -9,12 +9,15 @@ import type {
 import type { PlayerId, Room, RoomCode, Stroke } from "../shared/types";
 import { createPhaseLoop } from "./phase-loop";
 import {
+  canRestartGame,
   canStartGame,
   createRoom,
   getRoom,
   joinRoom,
   leaveRoom,
+  leaveRoomVoluntarily,
   markDisconnected,
+  restartGame,
   setReady,
   toPublicRoom,
 } from "./rooms";
@@ -571,19 +574,50 @@ io.on("connection", (socket) => {
 
     }
 
-    leaveRoom(roomCode, playerId);
+    leaveRoomVoluntarily(roomCode, playerId);
+
+    socket.data.roomCode = undefined;
+    socket.data.playerId = undefined;
 
     ack({ ok: true, data: undefined });
 
     broadcastState(roomCode, room);
 
-    socket.emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room))
+    socket.emit(SERVER_EVENTS.ROOM_UPDATED, null);
+    socket.emit(SERVER_EVENTS.STATE_UPDATED, null);
 
   })
 
-  socket.on(CLIENT_EVENTS.REPLAY, (rawAck)=>{
-    
-  })
+  socket.on(CLIENT_EVENTS.REPLAY, (rawAck) => {
+    const ack = safeAck<{ code: RoomCode }>(rawAck);
+
+    const { playerId, roomCode } = socket.data;
+    if (!playerId || !roomCode) {
+      ack({ ok: false, code: "ROOM_NOT_FOUND", message: "Not in a room." });
+      return;
+    }
+
+    const result = canRestartGame(roomCode, playerId);
+    if (!result.ok) {
+      ack(result);
+      return;
+    }
+
+    const room = getRoom(roomCode);
+    if (!room) {
+      ack({ ok: false, code: "ROOM_NOT_FOUND", message: "Not in a room." });
+      return;
+    }
+
+    const restartedGame = restartGame(room);
+
+    cancelPendingRemoval(room.code, playerId);
+
+    ack({ ok: true, data: { code: room.code } });
+    io.to(room.code).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(restartedGame));
+    io.to(room.code).emit(SERVER_EVENTS.STATE_UPDATED, null);
+  });
+
 
   socket.on("disconnect", () => {
     console.log(`client disconnected: ${socket.id}`);

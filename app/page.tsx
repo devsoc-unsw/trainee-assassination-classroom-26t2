@@ -55,7 +55,12 @@ export default function Home() {
             transform: "scale(1.75)",
           }}
         />
-        <Lobby room={room} socket={socket} />
+        <Lobby
+          room={room}
+          socket={socket}
+          setGameState={setGameState}
+          setRoomState={setRoom}
+        />
       </div>
     );
   }
@@ -63,7 +68,14 @@ export default function Home() {
   return (
     <>
       <Timer state={gameState} />
-      <Game room={room} socket={socket} gameState={gameState} setGameState={setGameState} setRoomState={setRoom} />;
+      <Game
+        room={room}
+        socket={socket}
+        gameState={gameState}
+        setGameState={setGameState}
+        setRoomState={setRoom}
+      />
+      ;
     </>
   );
 }

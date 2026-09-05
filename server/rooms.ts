@@ -10,6 +10,7 @@ import {
   type RoomCode,
 } from "@/shared/types";
 import { createWordDeck } from "./word-selection";
+import { create } from "domain";
 
 const PLAYER_COLOURS = [
   "#772322", // red (player-card-red.png)
@@ -98,6 +99,19 @@ export function createRoom(hostId: PlayerId, nickname: string): Room {
   return room;
 }
 
+export function restartGame(room: PublicRoom): Room {
+  const newRoom: Room = {
+    code: room.code,
+    hostId: room.hostId,
+    players: room.players,
+    state: createInitialGameState(),
+    deck: createWordDeck(),
+  };
+  rooms.set(room.code, newRoom);
+
+  return newRoom;
+}
+
 export function getRoom(code: RoomCode): Room | null {
   return rooms.get(normaliseCode(code)) ?? null;
 }
@@ -116,7 +130,10 @@ export function joinRoom(
       message: `No room found with code ${roomCode}.`,
     };
   }
-  if (room.state.phase !== "LOBBY" && !room.players.map((x)=>x.id).includes(playerId)) {
+  if (
+    room.state.phase !== "LOBBY" &&
+    !room.players.map((x) => x.id).includes(playerId)
+  ) {
     return {
       ok: false,
       code: "ROOM_IN_PROGRESS",
@@ -232,6 +249,36 @@ export function canStartGame(
   return { ok: true, data: undefined };
 }
 
+export function canRestartGame(
+  code: RoomCode,
+  requesterId: PlayerId,
+): Result<void> {
+  const roomCode = normaliseCode(code);
+  const room = rooms.get(roomCode);
+  if (!room) {
+    return {
+      ok: false,
+      code: "ROOM_NOT_FOUND",
+      message: `No room found with code ${roomCode}.`,
+    };
+  }
+  if (room.hostId !== requesterId) {
+    return {
+      ok: false,
+      code: "NOT_HOST",
+      message: "Only the host can restart the game.",
+    };
+  }
+  if (room.state.phase !== "GAME_OVER") {
+    return {
+      ok: false,
+      code: "WRONG_PHASE",
+      message: "That game has not ended started.",
+    };
+  }
+  return { ok: true, data: undefined };
+}
+
 export function markDisconnected(
   code: RoomCode,
   playerId: PlayerId,
@@ -274,4 +321,38 @@ export function leaveRoom(code: RoomCode, playerId: PlayerId): Room | null {
   }
 
   return room;
+}
+
+export function leaveRoomVoluntarily(
+  code: RoomCode,
+  playerId: PlayerId,
+): Result<void> {
+  const roomCode = normaliseCode(code);
+  const room = rooms.get(roomCode);
+  if (!room) {
+    return { ok: false, code: "ROOM_NOT_FOUND", message: "Room not found." };
+  }
+
+  const index = room.players.findIndex((player) => player.id === playerId);
+  if (index === -1) {
+    return {
+      ok: false,
+      code: "ROOM_NOT_FOUND",
+      message: "Player not in room.",
+    };
+  }
+  room.players.splice(index, 1);
+
+  if (room.players.length === 0) {
+    rooms.delete(roomCode);
+    return { ok: true, data: undefined };
+  }
+
+  if (room.hostId === playerId) {
+    const newHost = room.players[0];
+    room.hostId = newHost.id;
+    newHost.colour = HOST_COLOUR;
+  }
+
+  return { ok: true, data: undefined };
 }
