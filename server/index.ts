@@ -652,14 +652,14 @@ io.on("connection", (socket) => {
       return;
     }
 
+    socket.data.roomCode = undefined;
+    socket.data.playerId = undefined;
+    socket.leave(roomCode);
+
     leaveRoomVoluntarily(roomCode, playerId, (message) => {
       io.to(roomCode).emit(SERVER_EVENTS.INFO, message);
     });
-    socket.leave(roomCode);
     room = getRoom(roomCode);
-
-    socket.data.roomCode = undefined;
-    socket.data.playerId = undefined;
 
     socket.emit(SERVER_EVENTS.ROOM_UPDATED, null);
     socket.emit(SERVER_EVENTS.STATE_UPDATED, null);
