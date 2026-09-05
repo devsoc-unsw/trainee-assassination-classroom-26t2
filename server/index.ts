@@ -91,7 +91,9 @@ function scheduleRemoval(roomCode: RoomCode, playerId: PlayerId) {
     key,
     setTimeout(() => {
       pendingRemovals.delete(key);
-      const room = leaveRoom(roomCode, playerId);
+      const room = leaveRoom(roomCode, playerId, (message) => {
+        io.to(roomCode).emit(SERVER_EVENTS.INFO, message);
+      });
       if (!room) {
         if (!getRoom(roomCode)) {
           // Room emptied out while the player was gone. Clear its phase timer.
@@ -135,7 +137,9 @@ function departPreviousRoom(socket: GameSocket, keepCode?: RoomCode) {
   }
 
   cancelPendingRemoval(roomCode, playerId);
-  const room = leaveRoom(roomCode, playerId);
+  const room = leaveRoom(roomCode, playerId, (message) => {
+    io.to(roomCode).emit(SERVER_EVENTS.INFO, message);
+  });
   socket.leave(roomCode);
   socket.data.playerId = undefined;
   socket.data.roomCode = undefined;
@@ -157,8 +161,9 @@ function broadcastState(roomCode: RoomCode, room: Room) {
   for (const socketId of socketIds) {
     const memberSocket = io.sockets.sockets.get(socketId);
     const playerId = memberSocket?.data.playerId;
+    console.log(playerId); //TODO: Remove
     if (memberSocket && playerId) {
-      memberSocket.emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room))
+      memberSocket.emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
       memberSocket.emit(
         SERVER_EVENTS.STATE_UPDATED,
         serialiseStateFor(playerId, room),
@@ -221,6 +226,9 @@ function beginRound(room: Room): Result<void> {
   enterPhase(room, drawing.data);
   return { ok: true, data: undefined };
 }
+
+// TODO: Rate limiting
+// TODO: I don't know what zod is
 
 io.on("connection", (socket) => {
   console.log(`client connected: ${socket.id}`);
@@ -361,6 +369,16 @@ io.on("connection", (socket) => {
       return;
     }
 
+    for (const point of payload.points) {
+      if (point.x < 0 || point.y > 1) {
+        socket.emit(SERVER_EVENTS.ERROR, {
+          code: "INVALID_PAYLOAD",
+          message: "Outside of scope.",
+        });
+        return;
+      }
+    }
+
     stroke.points = stroke.points.concat(payload.points);
 
     // Finishing a stroke ends the turn early.
@@ -429,10 +447,18 @@ io.on("connection", (socket) => {
       return;
     }
     const text = payload?.text;
-    if (typeof text !== "string") {
+    if (typeof text !== "string" || text.length == 0) {
       socket.emit(SERVER_EVENTS.ERROR, {
         code: "INVALID_PAYLOAD",
         message: "submit_guess needs text.",
+      });
+      return;
+    }
+
+    if (text.length > 64) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "INVALID_PAYLOAD",
+        message: "Guess is too long",
       });
       return;
     }
@@ -539,6 +565,14 @@ io.on("connection", (socket) => {
       return;
     }
 
+    if (payload.point.x < 0 || payload.point.y > 1) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "INVALID_PAYLOAD",
+        message: "Outside of scope.",
+      });
+      return;
+    }
+
     const stroke: Stroke = {
       id: randomUUID(),
       playerId: playerId,
@@ -588,12 +622,21 @@ io.on("connection", (socket) => {
       return;
     }
 
+    for (const point of payload.points) {
+      if (point.x < 0 || point.y > 1) {
+        socket.emit(SERVER_EVENTS.ERROR, {
+          code: "INVALID_PAYLOAD",
+          message: "Outside of scope.",
+        });
+        return;
+      }
+    }
     stroke.points = stroke.points.concat(payload.points);
 
     broadcastState(roomCode, room);
   });
 
-  socket.on(CLIENT_EVENTS.LEAVE_ROOM, (rawAck)=>{
+  socket.on(CLIENT_EVENTS.LEAVE_ROOM, (rawAck) => {
     const ack = safeAck<void>(rawAck);
     const { playerId, roomCode } = socket.data;
     if (!playerId || !roomCode) {
@@ -601,26 +644,29 @@ io.on("connection", (socket) => {
       return;
     }
 
-    const room = getRoom(roomCode);
+    var room = getRoom(roomCode);
     if (!room) {
       ack({ ok: false, code: "ROOM_NOT_FOUND", message: "Not in a room." });
       return;
-
     }
 
-    leaveRoomVoluntarily(roomCode, playerId);
+    leaveRoomVoluntarily(roomCode, playerId, (message) => {
+      io.to(roomCode).emit(SERVER_EVENTS.INFO, message);
+    });
+    socket.leave(roomCode);
+    room = getRoom(roomCode);
 
     socket.data.roomCode = undefined;
     socket.data.playerId = undefined;
 
-    ack({ ok: true, data: undefined });
-
-    broadcastState(roomCode, room);
-
     socket.emit(SERVER_EVENTS.ROOM_UPDATED, null);
     socket.emit(SERVER_EVENTS.STATE_UPDATED, null);
 
-  })
+    if (room) {
+      broadcastState(roomCode, room);
+      return;
+    }
+  });
 
   socket.on(CLIENT_EVENTS.REPLAY, (rawAck) => {
     const ack = safeAck<{ code: RoomCode }>(rawAck);
@@ -643,15 +689,23 @@ io.on("connection", (socket) => {
       return;
     }
 
-    const restartedGame = restartGame(room);
+    const restartedGame = restartGame(
+      room,
+      (message) => {
+        io.to(room.code).emit(SERVER_EVENTS.INFO, message);
+      },
+      "Game restarted by host.",
+    );
 
     cancelPendingRemoval(room.code, playerId);
 
     ack({ ok: true, data: { code: room.code } });
-    io.to(room.code).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(restartedGame));
+    io.to(room.code).emit(
+      SERVER_EVENTS.ROOM_UPDATED,
+      toPublicRoom(restartedGame),
+    );
     io.to(room.code).emit(SERVER_EVENTS.STATE_UPDATED, null);
   });
-
 
   socket.on("disconnect", () => {
     console.log(`client disconnected: ${socket.id}`);

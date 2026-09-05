@@ -16,6 +16,9 @@ export default function Home() {
   const [gameState, setGameState] = useState<PublicGameState | null>(null);
   const [room, setRoom] = useState<PublicRoom | null>(null);
 
+  const [message, setMessage] = useState<string | null>(null);
+
+
   useEffect(() => {
     const handleRoomUpdated = (publicRoom: PublicRoom|null) => setRoom(publicRoom);
     socket.on(SERVER_EVENTS.ROOM_UPDATED, handleRoomUpdated);
@@ -32,6 +35,14 @@ export default function Home() {
     };
   }, [socket]);
 
+  useEffect(() => {
+    const handleInfo = (message_arg: string) => setMessage(message_arg);
+    socket.on(SERVER_EVENTS.INFO, handleInfo);
+    return () => {
+      socket.off(SERVER_EVENTS.INFO, handleInfo);
+    };
+  }, [socket]);
+
   if (playerId === "") {
     return (
       <main className="flex flex-1 items-center justify-center">
@@ -39,6 +50,8 @@ export default function Home() {
       </main>
     );
   }
+
+  // TODO: If message exists it should be displayed on the screen somewhere.
 
   const inLobby =
     room === null || gameState === null || gameState.phase === "LOBBY";

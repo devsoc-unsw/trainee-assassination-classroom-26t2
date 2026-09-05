@@ -29,6 +29,7 @@ export const SERVER_EVENTS = {
   ROOM_UPDATED: "room_updated",
   STATE_UPDATED: "state_updated",
   ERROR: "error",
+  INFO: "info",
 } as const;
 
 export type ErrorCode =
@@ -89,4 +90,5 @@ export interface ServerToClientEvents {
   room_updated: (room: PublicRoom | null) => void;
   state_updated: (state: PublicGameState | null) => void;
   error: (error: SocketError) => void;
+  info: (message: string) => void;
 }

@@ -1,4 +1,4 @@
-import type { Result } from "@/shared/events";
+import { SocketError, type Result } from "@/shared/events";
 import {
   MAX_PLAYERS,
   MIN_PLAYERS,
@@ -99,7 +99,11 @@ export function createRoom(hostId: PlayerId, nickname: string): Room {
   return room;
 }
 
-export function restartGame(room: PublicRoom): Room {
+export function restartGame(
+  room: PublicRoom,
+  broadcastMessage: (message: string) => void,
+  message: string,
+): Room {
   const newRoom: Room = {
     code: room.code,
     hostId: room.hostId,
@@ -108,6 +112,8 @@ export function restartGame(room: PublicRoom): Room {
     deck: createWordDeck(),
   };
   rooms.set(room.code, newRoom);
+
+  broadcastMessage(message);
 
   return newRoom;
 }
@@ -296,7 +302,11 @@ export function markDisconnected(
   return room;
 }
 
-export function leaveRoom(code: RoomCode, playerId: PlayerId): Room | null {
+export function leaveRoom(
+  code: RoomCode,
+  playerId: PlayerId,
+  broadcastMessage: (message: string) => void,
+): Room | null {
   const roomCode = normaliseCode(code);
   const room = rooms.get(roomCode);
   if (!room) {
@@ -314,6 +324,24 @@ export function leaveRoom(code: RoomCode, playerId: PlayerId): Room | null {
     return null;
   }
 
+  if (
+    room.players.length < 4 &&
+    room.state.phase !== "LOBBY" &&
+    room.state.phase !== "GAME_OVER"
+  ) {
+    restartGame(room, broadcastMessage, "Not enough players.");
+    return room;
+  }
+
+  if (
+    room.state.imposterId == playerId &&
+    room.state.phase !== "LOBBY" &&
+    room.state.phase !== "GAME_OVER"
+  ) {
+    restartGame(room, broadcastMessage, "Imposter disconnected.");
+    return room;
+  }
+
   if (room.hostId === playerId) {
     const newHost = room.players[0];
     room.hostId = newHost.id;
@@ -326,6 +354,7 @@ export function leaveRoom(code: RoomCode, playerId: PlayerId): Room | null {
 export function leaveRoomVoluntarily(
   code: RoomCode,
   playerId: PlayerId,
+  broadcastMessage: (message: string) => void,
 ): Result<void> {
   const roomCode = normaliseCode(code);
   const room = rooms.get(roomCode);
@@ -352,6 +381,24 @@ export function leaveRoomVoluntarily(
     const newHost = room.players[0];
     room.hostId = newHost.id;
     newHost.colour = HOST_COLOUR;
+  }
+
+  if (
+    room.players.length < 4 &&
+    room.state.phase !== "LOBBY" &&
+    room.state.phase !== "GAME_OVER"
+  ) {
+    restartGame(room, broadcastMessage, "Not enough players.");
+    return { ok: true, data: undefined };
+  }
+
+  if (
+    room.state.imposterId == playerId &&
+    room.state.phase !== "LOBBY" &&
+    room.state.phase !== "GAME_OVER"
+  ) {
+    restartGame(room, broadcastMessage, "Imposter disconnected.");
+    return { ok: true, data: undefined };
   }
 
   return { ok: true, data: undefined };
