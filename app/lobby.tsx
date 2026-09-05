@@ -56,7 +56,6 @@ export function Lobby({ room, socket, setRoomState, setGameState }: LobbyProps) 
     );
   }, [socket, playerId, storedSession]);
 
-
   function handleCreate() {
     setError(null);
     socket.emit(CLIENT_EVENTS.CREATE_ROOM, { playerId, nickname }, (result) => {

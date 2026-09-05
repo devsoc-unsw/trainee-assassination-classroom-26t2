@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { GameState, Room } from "@/shared/types";
-import { createInitialGameState } from "./rooms";
+import { createInitialGameState, createRoom, joinRoom, promoteSpectators } from "./rooms";
 import {
   advanceTurn,
   allConnectedReadyForReveal,
@@ -55,6 +55,7 @@ function roomWith(state: GameState): Room {
       colour: "#000",
       connected: true,
       ready: true,
+      isSpectator: false,
     })),
     state,
     deck: createWordDeck(1),
@@ -955,5 +956,56 @@ describe("pickImposter", () => {
 
   it("falls back to the only player when there is just one", () => {
     expect(pickImposter(["p1"], "p1")).toBe("p1");
+  });
+});
+
+describe("joinRoom mid game", () => {
+  it("adds a mid game joiner as a spectator instead of rejecting them", () => {
+    const room = createRoom("host", "Host");
+    const started = startRound(room.state, {
+      roundNumber: 1,
+      turnOrder: ["host"],
+      imposterId: "host",
+      word: "cat",
+      category: "animals",
+    });
+    if (started.ok) {
+      room.state = started.data;
+    }
+
+    const result = joinRoom(room.code, "latecomer", "Latecomer");
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const joined = result.data.players.find((p) => p.id === "latecomer");
+      expect(joined?.isSpectator).toBe(true);
+    }
+  });
+
+  it("still lets a normal lobby join happen as a full player", () => {
+    const room = createRoom("host", "Host");
+
+    const result = joinRoom(room.code, "p2", "Player Two");
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const joined = result.data.players.find((p) => p.id === "p2");
+      expect(joined?.isSpectator).toBe(false);
+    }
+  });
+});
+
+describe("promoteSpectators", () => {
+  it("flips every spectator to a full player", () => {
+    const room = createRoom("host", "Host");
+    joinRoom(room.code, "watcher", "Watcher");
+    const watcher = room.players.find((p) => p.id === "watcher");
+    if (watcher) {
+      watcher.isSpectator = true;
+    }
+
+    promoteSpectators(room);
+
+    expect(room.players.every((p) => !p.isSpectator)).toBe(true);
   });
 });

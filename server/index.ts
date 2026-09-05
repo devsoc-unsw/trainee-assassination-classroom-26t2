@@ -18,6 +18,7 @@ import {
   leaveRoomVoluntarily,
   markDisconnected,
   restartGame,
+  promoteSpectators,
   setReady,
   toPublicRoom,
 } from "./rooms";
@@ -198,6 +199,7 @@ function shuffled<T>(items: T[]): T[] {
 // Shared by the host's start_game and the phase loop's post-SCORING next round.
 // Disconnected players are left out of the rotation (T08).
 function beginRound(room: Room): Result<void> {
+  promoteSpectators(room);
   const turnOrder = shuffled(
     room.players
       .filter((player) => player.connected)

@@ -4,7 +4,7 @@ import { Canvas } from "@/app/components/game/Canvas";
 import { HomeButton } from "@/app/components/HomeButton";
 import type { AppSocket } from "@/app/socket-provider";
 import type { PlayerId, PublicGameState, PublicRoom } from "@/shared/types";
-import DrawingRound, { type Hint, type RosterPlayer } from "./DrawingRound";
+import DrawingRound, { type RosterPlayer } from "./DrawingRound";
 
 interface DrawingRoundScreenProps {
   room: PublicRoom;
@@ -43,20 +43,14 @@ export function DrawingRoundScreen({
   const currentDrawerId = gameState.turnOrder[gameState.turnIndex] ?? null;
   const myTurn = currentDrawerId === playerId;
 
-  // The server sends the imposter a category and no word; it sends everyone
-  // else the word. This only renders whichever branch it was given.
-  const hint: Hint =
-    "isImposter" in gameState.secret
-      ? { kind: "category", text: gameState.secret.category }
-      : { kind: "word", text: gameState.secret.word };
-
   return (
     <div className="relative w-full">
       <DrawingRound
         players={players}
         currentDrawerId={currentDrawerId}
         myPlayerId={playerId}
-        hint={hint}
+        secret={gameState.secret}
+        roundNumber={gameState.roundNumber}
         canDraw={myTurn}
         phaseEndsAt={gameState.phaseEndsAt}
         pass={gameState.pass}

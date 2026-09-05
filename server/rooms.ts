@@ -87,6 +87,7 @@ export function createRoom(hostId: PlayerId, nickname: string): Room {
     colour: HOST_COLOUR,
     connected: true,
     ready: false,
+    isSpectator: false,
   };
   const room: Room = {
     code,
@@ -189,6 +190,7 @@ export function joinRoom(
     colour: nextColour(room.players),
     connected: true,
     ready: false,
+    isSpectator: room.state.phase !== "LOBBY",
   });
   return { ok: true, data: room };
 }
@@ -402,4 +404,11 @@ export function leaveRoomVoluntarily(
   }
 
   return { ok: true, data: undefined };
+}
+
+// everyone currently in the room becomes a real player for the round that's about to start.
+export function promoteSpectators(room: Room): void {
+  for (const player of room.players) {
+    player.isSpectator = false;
+  }
 }
