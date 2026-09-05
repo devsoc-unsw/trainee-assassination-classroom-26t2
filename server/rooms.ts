@@ -56,6 +56,7 @@ export function createInitialGameState(): GameState {
     pass: 1,
     turnIndex: 0,
     turnOrder: [],
+    strokeSubmittedThisTurn: false,
     word: "",
     category: "",
     imposterId: null,
@@ -63,6 +64,7 @@ export function createInitialGameState(): GameState {
     votes: [],
     accusedId: null,
     finalGuess: null,
+    roundWinner: null,
     scores: { groupRoundsWon: 0, imposterRoundsWon: 0, perPlayer: {} },
     phaseEndsAt: null,
   };
@@ -114,7 +116,7 @@ export function joinRoom(
       message: `No room found with code ${roomCode}.`,
     };
   }
-  if (room.state.phase !== "LOBBY") {
+  if (room.state.phase !== "LOBBY" && !room.players.map((x)=>x.id).includes(playerId)) {
     return {
       ok: false,
       code: "ROOM_IN_PROGRESS",

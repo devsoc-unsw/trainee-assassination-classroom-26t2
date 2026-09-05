@@ -3,7 +3,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 import drawmeleonLogo from "@/public/images/landing-page/drawmeleon-logo.png";
-import { CLIENT_EVENTS, SERVER_EVENTS } from "@/shared/events";
+import { CLIENT_EVENTS } from "@/shared/events";
 import type { PublicRoom } from "@/shared/types";
 import { DrawingRoundLive } from "./components/drawing-round/DrawingRoundLive";
 import { useGameState } from "./components/drawing-round/useGameState";
@@ -17,7 +17,11 @@ import {
 } from "./lib/identity";
 import { useSocket } from "./socket-provider";
 
-export function Lobby() {
+interface LobbyProps {
+  room: PublicRoom | null;
+}
+
+export function Lobby({ room }: LobbyProps) {
   const socket = useSocket();
   const gameState = useGameState(socket);
   const playerId = useSyncExternalStore(subscribe, getPlayerId, () => "");
@@ -29,7 +33,6 @@ export function Lobby() {
 
   const [nickname, setNickname] = useState("");
   const [roomCode, setRoomCode] = useState("");
-  const [room, setRoom] = useState<PublicRoom | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -54,13 +57,6 @@ export function Lobby() {
     );
   }, [socket, playerId, storedSession]);
 
-  useEffect(() => {
-    const handleRoomUpdated = (publicRoom: PublicRoom) => setRoom(publicRoom);
-    socket.on(SERVER_EVENTS.ROOM_UPDATED, handleRoomUpdated);
-    return () => {
-      socket.off(SERVER_EVENTS.ROOM_UPDATED, handleRoomUpdated);
-    };
-  }, [socket]);
 
   function handleCreate() {
     setError(null);
@@ -85,14 +81,6 @@ export function Lobby() {
         }
         setStoredSession({ nickname, roomCode: result.data.code });
       },
-    );
-  }
-
-  if (playerId === "") {
-    return (
-      <main className="flex flex-1 items-center justify-center">
-        <p>Loading…</p>
-      </main>
     );
   }
 
