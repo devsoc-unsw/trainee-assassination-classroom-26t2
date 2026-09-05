@@ -8,6 +8,7 @@ import { useSocket } from "./socket-provider";
 import { VotingScreen } from "./components/game/VotingScreen";
 import { ImposterGuess } from "./components/game/ImposterGuess";
 import { HomeButton } from "./components/game/HomeButton";
+import { DrawingRoundScreen } from "./components/drawing-round/DrawingRoundScreen";
 
 interface GameProps {
   room: PublicRoom;
@@ -35,23 +36,33 @@ export function Game({ room, gameState }: GameProps) {
     }
   }
 
-  if (
-    gameState.phase == "DRAWING" ||
-    gameState.phase === "VOTING" ||
-    gameState.phase === "FINAL_GUESS"
-  ) {
+  // DRAWING gets its own screen (the hand-drawn frame, roster, and hint note)
+  // rather than the plain h1 the other in-round phases still use — everything
+  // else about this branch (Canvas, the socket, the strokes) is unchanged.
+  if (gameState.phase === "DRAWING") {
+    return (
+      <DrawingRoundScreen
+        room={room}
+        gameState={gameState}
+        playerId={playerId}
+        socket={socket}
+      />
+    );
+  }
+
+  if (gameState.phase === "VOTING" || gameState.phase === "FINAL_GUESS") {
     return (
       <main className="flex w-full max-w-6xl flex-1 flex-col items-center py-12 px-6 sm:py-16 sm:px-8 md:py-16 md:px-12">
         <h1>{`${gameState.phase}: ${playerUp}'s turn!`}</h1>
+        {/* Read-only here: this branch is only ever VOTING or FINAL_GUESS now
+            that DRAWING has its own screen above, and Canvas only accepts
+            input on someone's turn during DRAWING. */}
         <Canvas
           strokes={gameState.strokes}
           room={room}
           playerId={playerId}
           socket={socket}
-          myTurn={
-            gameState.turnOrder[gameState.turnIndex] === playerId &&
-            gameState.phase == "DRAWING"
-          }
+          myTurn={false}
         />
 
         {gameState.phase === "VOTING" && (
