@@ -7,7 +7,7 @@ import { getPlayerId, subscribe } from "./lib/identity";
 import { useSocket } from "./socket-provider";
 import { VotingScreen } from "./components/game/VotingScreen";
 import { ImposterGuess } from "./components/game/ImposterGuess";
-import { HomeButton } from "./components/game/HomeButton";
+import { HomeButton } from "./components/HomeButton";
 
 interface GameProps {
   room: PublicRoom;

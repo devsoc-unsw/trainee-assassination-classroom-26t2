@@ -11,6 +11,7 @@ import { PlayerCard } from "./PlayerCard";
 import { PlayerTally } from "./PlayerTally";
 import { RoomCodeBadge } from "./RoomCodeBadge";
 import { StartButton } from "./StartButton";
+import { HomeButton } from "../HomeButton";
 
 interface LobbyRoomProps {
   room: PublicRoom;
@@ -69,6 +70,7 @@ export function LobbyRoom({ room, playerId, socket }: LobbyRoomProps) {
         allReady={allReady}
         onStart={handleStart}
       />
+      <HomeButton socket={socket} />
 
       {me && (
         <CustomizeAvatarModal

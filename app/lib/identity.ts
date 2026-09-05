@@ -58,6 +58,11 @@ export function clearStoredSession(): void {
   emitChange();
 }
 
+export function clearPlayerId(): void {
+  sessionStorage.removeItem(PLAYER_ID_KEY);
+  emitChange();
+}
+
 export function subscribe(listener: () => void) {
   listeners.add(listener);
   return () => listeners.delete(listener);

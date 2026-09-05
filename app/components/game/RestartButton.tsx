@@ -3,23 +3,23 @@
 import { AppSocket } from "@/app/socket-provider";
 import { CLIENT_EVENTS, Result } from "@/shared/events";
 
-interface HomeButtonProps {
+interface ReplayButtonProps {
   socket: AppSocket;
 }
 
-function goHome(socket: AppSocket): Promise<Result<void>> {
+function replay(socket: AppSocket): Promise<Result<void>> {
   return new Promise((resolve) => {
-    socket.emit(CLIENT_EVENTS.LEAVE_ROOM, resolve);
+    socket.emit(CLIENT_EVENTS.REPLAY, resolve);
   });
 }
 
-export function HomeButton({ socket }: HomeButtonProps) {
+export function ReplayButton({ socket }: ReplayButtonProps) {
   return (
       <button
         type="button"
-        onClick={() => goHome(socket)}
+        onClick={() => replay(socket)}
       >
-        HOME
+        REPLAY
       </button>
   );
 }

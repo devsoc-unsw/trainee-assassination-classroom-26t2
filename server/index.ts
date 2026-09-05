@@ -557,6 +557,39 @@ io.on("connection", (socket) => {
     broadcastState(roomCode, room);
   });
 
+  socket.on(CLIENT_EVENTS.LEAVE_ROOM, (rawAck)=>{
+    const ack = safeAck<void>(rawAck);
+    const { playerId, roomCode } = socket.data;
+    if (!playerId || !roomCode) {
+      ack({ ok: false, code: "ROOM_NOT_FOUND", message: "Not in a room." });
+      return;
+    }
+
+    const room = getRoom(roomCode);
+    if (!room) {
+      ack({ ok: false, code: "ROOM_NOT_FOUND", message: "Not in a room." });
+      return;
+
+    }
+
+    const left = leaveRoom(roomCode, playerId);
+    if (!left) {
+      console.warn(
+        `[room ${roomCode}] leave_room rejected`,
+      );
+      ack({ ok: false, code: "ROOM_NOT_FOUND", message: "Not in a room." });
+      return;
+    }
+    ack({ ok: true, data: undefined });
+
+    broadcastState(roomCode, room);
+
+  })
+
+  socket.on(CLIENT_EVENTS.REPLAY, (rawAck)=>{
+    
+  })
+
   socket.on("disconnect", () => {
     console.log(`client disconnected: ${socket.id}`);
     const { playerId, roomCode } = socket.data;
