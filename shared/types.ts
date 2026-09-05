@@ -4,6 +4,8 @@ export const CANVAS_HEIGHT = 600;
 export const MIN_PLAYERS = 4;
 export const MAX_PLAYERS = 8;
 
+export const ROUNDS_PER_GAME = 3;
+
 export type PlayerId = string;
 export type RoomCode = string;
 
@@ -60,6 +62,8 @@ export interface Scores {
   perPlayer: Record<PlayerId, PlayerRecord>;
 }
 
+export type RoundWinner = "GROUP" | "IMPOSTER";
+
 export interface GameState {
   phase: Phase;
   roundNumber: number;
@@ -73,6 +77,7 @@ export interface GameState {
   votes: Vote[];
   accusedId: PlayerId | null;
   finalGuess: ImposterGuess | null;
+  roundWinner: RoundWinner | null;
   scores: Scores;
   phaseEndsAt: number | null;
 }
@@ -86,7 +91,7 @@ export interface RoundReveal {
   word: string;
   votes: Vote[];
   finalGuess: ImposterGuess | null;
-  winner: "GROUP" | "IMPOSTER";
+  winner: RoundWinner;
 }
 
 export interface PublicGameState {
