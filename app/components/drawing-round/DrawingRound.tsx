@@ -253,7 +253,7 @@ export default function DrawingRound({
           computed since every child is absolutely positioned. Also the
           container-query context for the cqw sizes below. */}
       <div
-        className="frame-drawing-layout relative aspect-[16/9] w-[min(calc(100vw-2rem),1920px,calc((100vh-2rem)*16/9))] [container-type:inline-size]"
+        className="frame-drawing-layout relative aspect-video w-[min(calc(100vw-2rem),1920px,calc((100vh-2rem)*16/9))] @container"
         style={{ "--avatar-size": `${avatarSize}cqw` } as CSSProperties}
       >
         {/* Roster: one coloured circle per player in turn order, each with an
