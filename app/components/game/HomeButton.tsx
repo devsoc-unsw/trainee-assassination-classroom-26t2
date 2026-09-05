@@ -9,7 +9,7 @@ interface HomeButtonProps {
 
 function goHome(socket: AppSocket): Promise<Result<void>> {
   return new Promise((resolve) => {
-    socket.emit(CLIENT_EVENTS.START_GAME, resolve);
+    socket.emit(CLIENT_EVENTS.LEAVE_ROOM, resolve);
   });
 }
 

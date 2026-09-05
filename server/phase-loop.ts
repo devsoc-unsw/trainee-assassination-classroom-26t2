@@ -6,6 +6,7 @@ import type { Result } from "@/shared/events";
 import type { GameState, Room, RoomCode } from "@/shared/types";
 import {
   advanceTurn,
+  beginDrawing,
   endRoundReveal,
   settleVoting,
   toRoundRevealFromFinalGuess,
@@ -26,6 +27,8 @@ export interface PhaseLoop {
 // for phases that never arm one (LOBBY, ROUND_STARTING, SCORING, GAME_OVER).
 function timeoutTransition(state: GameState): Result<GameState> | null {
   switch (state.phase) {
+    case "ROUND_STARTING":
+      return beginDrawing(state);
     case "DRAWING":
       return advanceTurn(state); // advanceTurn is what ends the phase, once the last player of pass 2 runs out of time.
     case "VOTING":
@@ -34,6 +37,8 @@ function timeoutTransition(state: GameState): Result<GameState> | null {
       return toRoundRevealFromFinalGuess(state);
     case "ROUND_REVEAL":
       return endRoundReveal(state);
+    case "SCORING":
+      return toNextRound(state);
     default:
       return null;
   }
