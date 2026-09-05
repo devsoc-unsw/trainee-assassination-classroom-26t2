@@ -5,8 +5,6 @@ import Image from "next/image";
 import drawmeleonLogo from "@/public/images/landing-page/drawmeleon-logo.png";
 import { CLIENT_EVENTS } from "@/shared/events";
 import type { PublicRoom } from "@/shared/types";
-import { DrawingRoundLive } from "./components/drawing-round/DrawingRoundLive";
-import { useGameState } from "./components/drawing-round/useGameState";
 import { LobbyRoom } from "./components/lobby/LobbyRoom";
 import {
   clearStoredSession,
@@ -23,7 +21,6 @@ interface LobbyProps {
 
 export function Lobby({ room }: LobbyProps) {
   const socket = useSocket();
-  const gameState = useGameState(socket);
   const playerId = useSyncExternalStore(subscribe, getPlayerId, () => "");
   const storedSession = useSyncExternalStore(
     subscribe,
@@ -89,23 +86,6 @@ export function Lobby({ room }: LobbyProps) {
     return (
       <main className="flex flex-1 items-center justify-center">
         <p>Rejoining room {storedSession.roomCode}…</p>
-      </main>
-    );
-  }
-
-  // The server decides when the game leaves the lobby; this only follows the
-  // phase it is told. Only DRAWING has a screen so far — the phases after it
-  // are T31 and T32, and until they exist the room stays on the lobby view
-  // rather than being shown a blank one.
-  if (room && gameState?.phase === "DRAWING") {
-    return (
-      <main className="flex w-full flex-1 flex-col">
-        <DrawingRoundLive
-          room={room}
-          playerId={playerId}
-          socket={socket}
-          state={gameState}
-        />
       </main>
     );
   }
