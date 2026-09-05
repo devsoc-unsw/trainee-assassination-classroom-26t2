@@ -5,7 +5,7 @@ import { useSyncExternalStore } from "react";
 import type { PublicGameState, PublicRoom } from "@/shared/types";
 import { getPlayerId, subscribe } from "./lib/identity";
 import { useSocket } from "./socket-provider";
-import { VotingScreen } from "./components/game/VotingScreen";
+import { VotingRoundScreen } from "./components/voting/VotingRoundScreen";
 import { ImposterGuess } from "./components/game/ImposterGuess";
 import { HomeButton } from "./components/game/HomeButton";
 import { SecretDisplay } from "./components/lobby/SecretDisplay";
@@ -40,12 +40,24 @@ export function Game({ room, gameState }: GameProps) {
     );
   }
 
-  if (gameState.phase === "VOTING" || gameState.phase === "FINAL_GUESS") {
+  // VOTING gets its own hand-drawn screen (the accusing hand + roster) — the
+  // same split DRAWING has. It early-returns rather than anticipating whether
+  // the server will branch to FINAL_GUESS or ROUND_REVEAL next.
+  if (gameState.phase === "VOTING") {
+    return (
+      <VotingRoundScreen
+        room={room}
+        gameState={gameState}
+        playerId={playerId}
+        socket={socket}
+      />
+    );
+  }
+
+  if (gameState.phase === "FINAL_GUESS") {
     return (
       <>
-        {gameState.phase === "FINAL_GUESS" && (
-          <SecretDisplay secret={gameState.secret} />
-        )}
+        <SecretDisplay secret={gameState.secret} />
         <main className="flex w-full max-w-6xl flex-1 flex-col items-center py-12 px-6 sm:py-16 sm:px-8 md:py-16 md:px-12">
           <h1>{`${gameState.phase}: ${playerUp}'s turn!`}</h1>
           <Canvas
@@ -56,12 +68,7 @@ export function Game({ room, gameState }: GameProps) {
             myTurn={false}
           />
 
-          {gameState.phase === "VOTING" && (
-            <VotingScreen players={room.players} socket={socket} />
-          )}
-          {gameState.phase === "FINAL_GUESS" && (
-            <ImposterGuess socket={socket} />
-          )}
+          <ImposterGuess socket={socket} />
           <HomeButton socket={socket} />
         </main>
       </>
