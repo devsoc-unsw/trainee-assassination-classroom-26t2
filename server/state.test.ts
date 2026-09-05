@@ -3,6 +3,7 @@ import type { GameState, Room } from "@/shared/types";
 import { createInitialGameState } from "./rooms";
 import {
   advanceTurn,
+  allConnectedReadyForReveal,
   allConnectedVoted,
   assertPhase,
   beginDrawing,
@@ -13,6 +14,7 @@ import {
   endRoundReveal,
   isCurrentDrawer,
   isGameOver,
+  markRevealReady,
   pickImposter,
   resolveRoundWinner,
   serialiseStateFor,
@@ -656,6 +658,52 @@ describe("allConnectedVoted", () => {
   });
 });
 
+describe("markRevealReady", () => {
+  it("appends a first-time ready player during ROUND_REVEAL", () => {
+    const result = markRevealReady(stateAt("ROUND_REVEAL"), PLAYERS[0]);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.revealReadyIds).toEqual([PLAYERS[0]]);
+    }
+  });
+
+  it("is a no-op, not an error, on a repeat click from the same player", () => {
+    const state = stateAt("ROUND_REVEAL", { revealReadyIds: [PLAYERS[0]] });
+    const result = markRevealReady(state, PLAYERS[0]);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.revealReadyIds).toEqual([PLAYERS[0]]);
+    }
+  });
+
+  it("is rejected and logged outside ROUND_REVEAL", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = markRevealReady(stateAt("VOTING"), PLAYERS[0]);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("WRONG_PHASE");
+    warn.mockRestore();
+  });
+});
+
+describe("allConnectedReadyForReveal", () => {
+  it("is false while a connected player has not readied up", () => {
+    expect(allConnectedReadyForReveal([PLAYERS[0]], PLAYERS)).toBe(false);
+  });
+
+  it("is true once every connected player is ready", () => {
+    expect(allConnectedReadyForReveal(PLAYERS, PLAYERS)).toBe(true);
+  });
+
+  it("ignores a disconnected player who left the denominator", () => {
+    expect(
+      allConnectedReadyForReveal(
+        [PLAYERS[0], PLAYERS[1], PLAYERS[2]],
+        [PLAYERS[0], PLAYERS[1], PLAYERS[2]],
+      ),
+    ).toBe(true);
+  });
+});
+
 describe("settleVoting", () => {
   it("takes the caught branch to FINAL_GUESS when the imposter has the plurality", () => {
     const state = stateAt("VOTING", {
@@ -816,6 +864,17 @@ describe("serialiseStateFor", () => {
     expect(view.votedPlayerIds).toEqual([PLAYERS[0], PLAYERS[2]]);
     expect(view).not.toHaveProperty("votes");
     expect(JSON.stringify(view)).not.toContain("targetId");
+  });
+
+  it("exposes who is ready to move on from the reveal", () => {
+    room = roomWith(
+      stateAt("ROUND_REVEAL", {
+        accusedId: room.state.imposterId,
+        revealReadyIds: [PLAYERS[0], PLAYERS[2]],
+      }),
+    );
+    const view = serialiseStateFor(PLAYERS[0], room);
+    expect(view.readyForNextIds).toEqual([PLAYERS[0], PLAYERS[2]]);
   });
 
   it("includes the full reveal, including imposterId and votes, once in ROUND_REVEAL", () => {

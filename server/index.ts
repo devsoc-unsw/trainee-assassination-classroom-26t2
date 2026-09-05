@@ -20,11 +20,13 @@ import {
 } from "./rooms";
 import {
   advanceTurn,
+  allConnectedReadyForReveal,
   allConnectedVoted,
   beginDrawing,
   castVote,
   dropFromTurnOrder,
   isCurrentDrawer,
+  markRevealReady,
   pickImposter,
   serialiseStateFor,
   settleVoting,
@@ -163,7 +165,7 @@ function broadcastState(roomCode: RoomCode, room: Room) {
 
 // T09: the phase loop drives timed transitions. See server/phase-loop.ts.
 // T19: startNextRound goes to the next round after SCORING
-const { enterPhase } = createPhaseLoop({
+const { enterPhase, settleRoundReveal } = createPhaseLoop({
   getRoom,
   broadcast: (room) => broadcastState(room.code, room),
   startNextRound: (room) => {
@@ -453,6 +455,38 @@ io.on("connection", (socket) => {
       return;
     }
     enterPhase(room, revealed.data);
+  });
+
+  socket.on(CLIENT_EVENTS.REVEAL_READY, () => {
+    const { playerId, roomCode } = socket.data;
+    if (!playerId || !roomCode) {
+      return;
+    }
+
+    const room = getRoom(roomCode);
+    if (!room) {
+      return;
+    }
+
+    const marked = markRevealReady(room.state, playerId);
+    if (!marked.ok) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: marked.code,
+        message: marked.message,
+      });
+      return;
+    }
+
+    room.state = marked.data;
+    broadcastState(roomCode, room);
+
+    const connectedIds = room.players
+      .filter((player) => player.connected)
+      .map((player) => player.id);
+
+    if (allConnectedReadyForReveal(room.state.revealReadyIds, connectedIds)) {
+      settleRoundReveal(room);
+    }
   });
 
   socket.on(CLIENT_EVENTS.TIME_SYNC, (ack) => {

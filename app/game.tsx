@@ -8,6 +8,7 @@ import { useSocket } from "./socket-provider";
 import { VotingScreen } from "./components/game/VotingScreen";
 import { ImposterGuess } from "./components/game/ImposterGuess";
 import { HomeButton } from "./components/game/HomeButton";
+import { RoundReveal } from "./components/game/RoundReveal";
 import { DrawingRoundScreen } from "./components/drawing-round/DrawingRoundScreen";
 
 interface GameProps {
@@ -77,7 +78,13 @@ export function Game({ room, gameState }: GameProps) {
   if (gameState.phase == "ROUND_REVEAL") {
     return (
       <>
-        <h1>Round reveal (unimplemented)</h1>
+        <RoundReveal
+          key={gameState.roundNumber}
+          room={room}
+          gameState={gameState}
+          playerId={playerId}
+          socket={socket}
+        />
         <HomeButton socket={socket} />
       </>
     );

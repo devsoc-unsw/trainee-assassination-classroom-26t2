@@ -99,6 +99,7 @@ export function startRound(
       finalGuess: null,
       roundWinner: null,
       phaseEndsAt: null,
+      revealReadyIds: [],
     }),
   );
 }
@@ -314,6 +315,31 @@ export function allConnectedVoted(
   return connectedPlayerIds.every((id) => voters.has(id));
 }
 
+export function markRevealReady(
+  state: GameState,
+  playerId: PlayerId,
+): Result<GameState> {
+  const guard = assertPhase(state, ["ROUND_REVEAL"], "reveal_ready");
+  if (!guard.ok) {
+    return guard;
+  }
+  if (state.revealReadyIds.includes(playerId)) {
+    return { ok: true, data: state };
+  }
+  return {
+    ok: true,
+    data: { ...state, revealReadyIds: [...state.revealReadyIds, playerId] },
+  };
+}
+
+export function allConnectedReadyForReveal(
+  readyIds: PlayerId[],
+  connectedPlayerIds: PlayerId[],
+): boolean {
+  const ready = new Set(readyIds);
+  return connectedPlayerIds.every((id) => ready.has(id));
+}
+
 export function settleVoting(state: GameState): Result<GameState> {
   const guard = assertPhase(state, ["VOTING"], "settle_voting");
   if (!guard.ok) {
@@ -477,6 +503,7 @@ export function serialiseStateFor(
     phaseEndsAt: state.phaseEndsAt,
     scores: state.scores,
     votedPlayerIds: state.votes.map((vote) => vote.voterId),
+    readyForNextIds: state.revealReadyIds,
     secret,
     reveal,
   };

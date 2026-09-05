@@ -253,6 +253,67 @@ describe("phase loop", () => {
     });
   });
 
+  describe("settleRoundReveal (early exit once everyone's ready)", () => {
+    it("non-final round: settles into SCORING and spins the next round, same as the timeout", () => {
+      const room = roomAt("ROUND_REVEAL", {
+        roundNumber: 1,
+        accusedId: null,
+      });
+      const { loop, startNextRound } = setup(room);
+      loop.enterPhase(room, room.state);
+
+      loop.settleRoundReveal(room);
+
+      expect(room.state.phase).toBe("SCORING");
+      expect(room.state.scores.imposterRoundsWon).toBe(1);
+      expect(getRoomTimer(CODE)).toBeNull();
+      expect(startNextRound).toHaveBeenCalledTimes(1);
+      expect(startNextRound).toHaveBeenCalledWith(room);
+    });
+
+    it("final round: settles straight into GAME_OVER instead of spinning another round", () => {
+      const room = roomAt("ROUND_REVEAL", {
+        roundNumber: 3,
+        accusedId: null,
+      });
+      const { loop, startNextRound } = setup(room);
+      loop.enterPhase(room, room.state);
+
+      loop.settleRoundReveal(room);
+
+      expect(room.state.phase).toBe("GAME_OVER");
+      expect(room.state.scores.imposterRoundsWon).toBe(1);
+      expect(startNextRound).not.toHaveBeenCalled();
+      expect(getRoomTimer(CODE)).toBeNull();
+    });
+
+    it("cancels the pending ROUND_REVEAL timeout so it can't also fire", () => {
+      const room = roomAt("ROUND_REVEAL", { roundNumber: 1, accusedId: null });
+      const { loop, startNextRound } = setup(room);
+      loop.enterPhase(room, room.state);
+
+      loop.settleRoundReveal(room);
+      startNextRound.mockClear();
+
+      vi.advanceTimersByTime(PHASE_DURATIONS_MS.ROUND_REVEAL);
+
+      expect(startNextRound).not.toHaveBeenCalled();
+    });
+
+    it("does nothing if called outside ROUND_REVEAL", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const room = roomAt("VOTING");
+      const { loop, startNextRound } = setup(room);
+      loop.enterPhase(room, room.state);
+
+      loop.settleRoundReveal(room);
+
+      expect(room.state.phase).toBe("VOTING");
+      expect(startNextRound).not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
+  });
+
   it("does nothing when the room was deleted before its timer fired", () => {
     const room = roomAt("DRAWING");
     const { loop, broadcast, rooms } = setup(room);
