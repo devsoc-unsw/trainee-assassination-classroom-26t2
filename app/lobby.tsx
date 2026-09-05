@@ -90,6 +90,8 @@ export function Lobby({ room }: LobbyProps) {
     );
   }
 
+  // app/page.tsx already routes to <Game> once gameState.phase leaves LOBBY, so
+  // by the time this renders with a room, the game genuinely has not started.
   if (room) {
     return (
       <main className="flex w-full max-w-6xl flex-1 flex-col items-center py-12 px-6 sm:py-16 sm:px-8 md:py-16 md:px-12">

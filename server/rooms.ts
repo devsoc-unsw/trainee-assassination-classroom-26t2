@@ -67,6 +67,7 @@ export function createInitialGameState(): GameState {
     roundWinner: null,
     scores: { groupRoundsWon: 0, imposterRoundsWon: 0, perPlayer: {} },
     phaseEndsAt: null,
+    revealReadyIds: [],
   };
 }
 

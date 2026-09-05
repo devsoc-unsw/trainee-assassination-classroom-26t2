@@ -79,6 +79,7 @@ export interface GameState {
   roundWinner: RoundWinner | null;
   scores: Scores;
   phaseEndsAt: number | null;
+  revealReadyIds: PlayerId[];
 }
 
 export type ImposterSecret = { isImposter: true; category: string };
@@ -104,6 +105,7 @@ export interface PublicGameState {
   phaseEndsAt: number | null;
   scores: Scores;
   votedPlayerIds: PlayerId[];
+  readyForNextIds: PlayerId[];
   secret: PlayerSecret;
   reveal: RoundReveal | null;
 }

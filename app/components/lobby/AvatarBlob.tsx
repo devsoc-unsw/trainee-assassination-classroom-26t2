@@ -2,16 +2,21 @@ interface AvatarBlobProps {
   colour: string;
   initial: string;
   size?: "sm" | "md" | "lg";
+  className?: string;
 }
-
-// Placeholder avatar: a colour blob with an initial.
-export function AvatarBlob({ colour, initial, size = "md" }: AvatarBlobProps) {
+export function AvatarBlob({
+  colour,
+  initial,
+  size = "md",
+  className,
+}: AvatarBlobProps) {
   const dimensionClass =
-    size === "sm"
+    className ??
+    (size === "sm"
       ? "h-10 w-10 text-sm"
       : size === "lg"
         ? "h-20 w-20 text-2xl"
-        : "h-16 w-16 text-xl";
+        : "h-16 w-16 text-xl");
 
   return (
     <div

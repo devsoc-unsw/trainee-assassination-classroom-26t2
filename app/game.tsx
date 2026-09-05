@@ -9,6 +9,8 @@ import { VotingScreen } from "./components/game/VotingScreen";
 import { ImposterGuess } from "./components/game/ImposterGuess";
 import { HomeButton } from "./components/game/HomeButton";
 import { SecretDisplay } from "./components/lobby/SecretDisplay";
+import { RoundReveal } from "./components/game/RoundReveal";
+import { DrawingRoundScreen } from "./components/drawing-round/DrawingRoundScreen";
 
 interface GameProps {
   room: PublicRoom;
@@ -24,36 +26,52 @@ export function Game({ room, gameState }: GameProps) {
 
   let content;
 
-  if (
-    gameState.phase == "DRAWING" ||
-    gameState.phase === "VOTING" ||
-    gameState.phase === "FINAL_GUESS"
-  ) {
-    content = (
-      <main className="flex w-full max-w-6xl flex-1 flex-col items-center py-12 px-6 sm:py-16 sm:px-8 md:py-16 md:px-12">
-        <h1>{`${gameState.phase}: ${playerUp}'s turn!`}</h1>
-        <Canvas
-          strokes={gameState.strokes}
-          room={room}
-          playerId={playerId}
-          socket={socket}
-          myTurn={
-            gameState.turnOrder[gameState.turnIndex] === playerId &&
-            gameState.phase == "DRAWING"
-          }
-        />
+  // DRAWING gets its own screen (the hand-drawn frame, roster, and hint note)
+  // rather than the plain h1 the other in-round phases still use — everything
+  // else about this branch (Canvas, the socket, the strokes) is unchanged.
+  if (gameState.phase === "DRAWING") {
+    return (
+      <DrawingRoundScreen
+        room={room}
+        gameState={gameState}
+        playerId={playerId}
+        socket={socket}
+      />
+    );
+  }
 
-        {gameState.phase === "VOTING" && (
-          <VotingScreen players={room.players} socket={socket} />
-        )}
-        {gameState.phase === "FINAL_GUESS" && <ImposterGuess socket={socket} />}
-        <HomeButton socket={socket} />
-      </main>
+  if (gameState.phase === "VOTING" || gameState.phase === "FINAL_GUESS") {
+    return (
+      <>
+        <SecretDisplay secret={gameState.secret} />
+        <main className="flex w-full max-w-6xl flex-1 flex-col items-center py-12 px-6 sm:py-16 sm:px-8 md:py-16 md:px-12">
+          <h1>{`${gameState.phase}: ${playerUp}'s turn!`}</h1>
+          <Canvas
+            strokes={gameState.strokes}
+            room={room}
+            playerId={playerId}
+            socket={socket}
+            myTurn={false}
+          />
+
+          {gameState.phase === "VOTING" && (
+            <VotingScreen players={room.players} socket={socket} />
+          )}
+          {gameState.phase === "FINAL_GUESS" && <ImposterGuess socket={socket} />}
+          <HomeButton socket={socket} />
+        </main>
+      </>
     );
   } else if (gameState.phase == "ROUND_REVEAL") {
     content = (
       <>
-        <h1>Round reveal (unimplemented)</h1>
+        <RoundReveal
+          key={gameState.roundNumber}
+          room={room}
+          gameState={gameState}
+          playerId={playerId}
+          socket={socket}
+        />
         <HomeButton socket={socket} />
       </>
     );
