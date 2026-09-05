@@ -1,33 +1,25 @@
 "use client";
 
-import { useState } from "react";
-import type { Result } from "@/shared/events";
-import { MIN_PLAYERS } from "@/shared/types";
+import { AppSocket } from "@/app/socket-provider";
+import { CLIENT_EVENTS, Result } from "@/shared/events";
 
 interface HomeButtonProps {
-  onPress: () => void;
+  socket: AppSocket;
 }
 
-export function HomeButton({
-  onPress,
-}: HomeButtonProps) {
+function goHome(socket: AppSocket): Promise<Result<void>> {
+  return new Promise((resolve) => {
+    socket.emit(CLIENT_EVENTS.START_GAME, resolve);
+  });
+}
 
-
-  async function handleClick() {
-    const result = onPress();
-  }
-
+export function HomeButton({ socket }: HomeButtonProps) {
   return (
-    <div className="start-button-wrap flex flex-col items-center gap-1">
       <button
         type="button"
-        onClick={handleClick}
-        className="start-button w-64 animate-boil frame-start-game disabled:cursor-not-allowed disabled:opacity-40"
+        onClick={() => goHome(socket)}
       >
-        <span className="sr-only">
-            "Home"
-        </span>
+        HOME
       </button>
-    </div>
   );
 }

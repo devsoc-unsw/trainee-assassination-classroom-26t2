@@ -15,7 +15,7 @@ function onChange(component: HTMLSelectElement, socket: AppSocket) {
 
 export function VotingScreen({ players, socket }: VotingScreenProps) {
   const options: ReactNode[] = players.map((x) => (
-    <option value={x.id}>{x.nickname}</option>
+    <option key={x.id} value={x.id}>{x.nickname}</option>
   ));
 
   return (

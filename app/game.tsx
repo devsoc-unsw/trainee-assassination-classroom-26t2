@@ -7,15 +7,10 @@ import type {
   PublicRoom,
 } from "@/shared/types";
 import { getPlayerId, subscribe } from "./lib/identity";
-import { AppSocket, useSocket } from "./socket-provider";
+import { useSocket } from "./socket-provider";
 import { VotingScreen } from "./components/game/VotingScreen";
 import { ImposterGuess } from "./components/game/ImposterGuess";
 import { HomeButton } from "./components/game/HomeButton";
-import { CLIENT_EVENTS } from "@/shared/events";
-
-function goHome(socket: AppSocket){
-  socket.emit(CLIENT_EVENTS.LEAVE)
-}
 
 interface GameProps {
   room: PublicRoom;
@@ -29,9 +24,6 @@ export function Game({ room, gameState }: GameProps) {
     (x) => x.id == gameState.turnOrder[gameState.turnIndex],
   )?.nickname;
 
-  /*
-  | "ROUND_REVEAL"
-  | "GAME_OVER";*/
 
   if (gameState.phase == "ROUND_STARTING") {
     if (gameState.secret.isImposter) {
@@ -64,19 +56,24 @@ export function Game({ room, gameState }: GameProps) {
 
         {gameState.phase === "VOTING" && <VotingScreen players={room.players} socket = {socket}/>}
         {gameState.phase === "FINAL_GUESS" && <ImposterGuess socket={socket}/>}
+        <HomeButton socket={socket} />
       </main>
     );
   }
 
   if (gameState.phase == "ROUND_REVEAL") {
-    <h1>Round reveal (unimplemented)</h1>
+    return <><h1>Round reveal (unimplemented)</h1><HomeButton socket={socket} /></>
+  }
+
+  if (gameState.phase == "SCORING") {
+    return <><h1>Scores!</h1></>
   }
 
   if (gameState.phase == "GAME_OVER") {
     return (
       <>
         <h1>Game Over!</h1>
-        <HomeButton onPress={()=>goHome(socket)} />
+        <HomeButton socket={socket} />
       </>
     );
   }
