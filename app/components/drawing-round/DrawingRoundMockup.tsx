@@ -1,18 +1,18 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
-import DrawingRound, {
-  type NormPoint,
-  type RenderStroke,
-} from "./DrawingRound";
+import { useSyncExternalStore } from "react";
+import DrawingRound from "./DrawingRound";
 
 /* Offline preview of the drawing round, mounted at /drawing.
 
-   The real screen is DrawingRound, driven by DrawingRoundLive off the server's
-   state. This wrapper feeds it fixtures instead, so the layout, the pencil, the
-   clock and the note can be worked on without standing up a socket server and
-   four players. It is the same component either way — there is no second copy
-   of the screen to drift out of sync.
+   The real screen is DrawingRoundScreen, which wraps this same DrawingRound
+   around teammates' <Canvas> off the server's state. This wrapper feeds
+   DrawingRound fixtures and a blank placeholder board instead, so the layout,
+   the pencil, the clock and the note can be worked on without standing up a
+   socket server and four players. It is the same art component either way —
+   there is no second copy of the screen to drift out of sync. The placeholder
+   board draws nothing because drawing itself is entirely Canvas's job now; this
+   preview is only ever about the frame around it.
 
    Flip PREVIEW_AS_IMPOSTER to see the imposter's note treatment. */
 // Annotated as boolean rather than inferred as the literal `false`, so flipping
@@ -54,7 +54,6 @@ const onServer = () => false;
 const PREVIEW_DEADLINE = Date.now() + TURN_MS;
 
 export default function DrawingRoundMockup() {
-  const [strokes, setStrokes] = useState<RenderStroke[]>([]);
   const mounted = useSyncExternalStore(neverChanges, onClient, onServer);
 
   // null until hydration is done, so the server's HTML and the first client
@@ -62,34 +61,33 @@ export default function DrawingRoundMockup() {
   // placeholder. Reload to restart the countdown.
   const endsAt = mounted ? PREVIEW_DEADLINE : null;
 
-  function handleStrokeEnd(points: NormPoint[]) {
-    setStrokes((current) => [
-      ...current,
-      { id: `preview-${current.length}`, colour: ME.colour, points },
-    ]);
-  }
-
   return (
     <DrawingRound
       players={PLAYERS}
       currentDrawerId={ME.id}
       myPlayerId={ME.id}
-      myColour={ME.colour}
       // The longest real entries in server/words.ts, so the preview always
       // shows the hardest case the note has to hold rather than a flattering
-      // short one.
+      // short one. "constellation" is the single longest unbroken word
+      // anywhere in the list — the case that actually broke the first version
+      // of the note's sizing (a closed-form guess at character width, with no
+      // margin for tracking-wide's letter-spacing on a word with nowhere to
+      // wrap) — so it stays the fixture here rather than a shorter word that
+      // would not have caught it.
       hint={
         PREVIEW_AS_IMPOSTER
           ? { kind: "category", text: "a piece of technology" }
-          : { kind: "word", text: "hot air balloon" }
+          : { kind: "word", text: "constellation" }
       }
-      strokes={strokes}
-      // The preview has no turn to spend, so the board stays live and strokes
-      // can be drawn one after another.
+      // The preview has no turn to spend, so the pencil just tracks the cursor
+      // indefinitely.
       canDraw
       phaseEndsAt={endsAt}
       pass={1}
-      onStrokeEnd={handleStrokeEnd}
+      // Blank: the cream shows through from the frame art underneath, since
+      // nothing here paints its own background. Drawing itself only exists in
+      // the real Canvas component, not in this preview.
+      board={<div className="h-full w-full" />}
     />
   );
 }

@@ -1,11 +1,12 @@
 "use client";
 
 import {
-  useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
+  type ReactNode,
 } from "react";
 import { AvatarBlob } from "@/app/components/lobby/AvatarBlob";
 import { useCountdown } from "@/app/lib/clock";
@@ -44,13 +45,24 @@ const CLOCK_FACE = { left: 14.27, top: 26.72, width: 72.79, height: 62.12 };
 const NOTE_BODY = { left: 11.4, top: 2.2, width: 79.9, height: 95.1 };
 
 // The pencil is anchored by its graphite tip and rotated about it, so the tip
-// tracks the drawing point exactly however the pencil leans. tipX/tipY are the
-// tip's position within the pencil ink, measured off draw-pencil2.png; the angle
+// tracks the pointer exactly however the pencil leans. tipX/tipY are the tip's
+// position within the pencil ink, measured off draw-pencil2.png; the angle
 // matches the lean in the design.
 const PENCIL = { length: 8, tipX: 58, tipY: 100, angle: 34 };
 
 // Where the design rests the pencil while nobody is drawing, in board percent.
 const PENCIL_PARK = { x: 69.7, y: 59.8 };
+
+/* app/components/game/Canvas.tsx (Alex's) draws at a hardcoded 800x600 CSS
+   pixel size with no prop to override it — shared/types.ts no longer exports a
+   canvas size constant at all, since Point moved to being natively 0..1 of
+   whatever the canvas element renders at. So this is the one place that still
+   needs to know their fixed size, purely to compute how much to visually scale
+   it by to fill the hand-drawn board slot. If Canvas.tsx's own inline style
+   ever changes, this has to follow it — there is nothing to import that would
+   keep the two in sync automatically. */
+const TEAMMATE_CANVAS_WIDTH = 800;
+const TEAMMATE_CANVAS_HEIGHT = 600;
 
 // A turn is 20s (server/timers.ts PHASE_DURATIONS_MS.DRAWING), so the clock
 // turns red for the last quarter of it rather than the 10s the 60s mockup used.
@@ -59,46 +71,93 @@ const INK = "#3f3730";
 
 /* Sizing the text on the note.
 
-   The paper is about 7cqw of usable width by a shade over 4cqw of height, and
-   bold caps run to roughly 0.7em of advance each. Fitting the whole string on
-   one line holds up for "CAT" and collapses for the long entries in the word
-   list: "a piece of technology" came out around 0.4cqw, illegible, and that is
-   the imposter's only information for the entire round.
+   First pass here was a closed-form guess — estimate an average character
+   width, divide the paper's width by the longest word, done. It came apart on
+   "corkscrew": a real T10 word list entry, one unbroken word with nowhere to
+   wrap, and the guessed character width did not leave room for tracking-wide's
+   letter-spacing. It clipped by two pixels — the kind of gap a fixture built
+   from "hot air balloon" and "a piece of technology" never exercises, because
+   both of those get bailed out by wrapping onto a second line before the
+   per-character error accumulates enough to matter.
 
-   Letting it wrap moves the constraint. Across, it is now the longest single
-   word, because that is the part that cannot be broken. Down, it is how many
-   lines the whole string then takes, and the paper holds about 3.6 of them.
-   Whichever is tighter wins. Worst cases in the current list are "hot air
-   balloon" and "a piece of technology". */
+   This measures the real element instead: render at the largest allowed size,
+   then shrink in fixed steps until it actually fits, reading true scrollWidth /
+   scrollHeight against the box on every step. That is correct for whatever the
+   loaded font, its bold weight, and tracking-wide actually render at, with no
+   assumption about average glyph width baked in. */
 const NOTE_MAX_CQW = 1.2;
-const NOTE_MIN_CQW = 0.5;
+const NOTE_MIN_CQW = 0.35;
+const NOTE_STEP_CQW = 0.05;
 
-const noteSize = (text: string) => {
-  const words = text.split(/\s+/).filter(Boolean);
-  const longest = words.reduce((widest, word) => Math.max(widest, word.length), 1);
-  const byWidth = Math.min(NOTE_MAX_CQW, 9.8 / longest);
-  const charsPerLine = Math.max(1, Math.floor(10.3 / byWidth));
-  const lines = Math.ceil(text.length / charsPerLine);
-  return Math.max(NOTE_MIN_CQW, Math.min(byWidth, 3.6 / lines));
-};
+// Sized once per distinct hint text (a new round), not on every countdown
+// tick: useCountdown re-renders this component every 250ms, and re-measuring
+// on each of those would be pointless work for a value that cannot have
+// changed. Expressed in cqw throughout, so a correctly-fitted value stays
+// correct across a later resize with no re-measurement needed — the text and
+// its box scale together, and the ratio between them is what a shrink-to-fit
+// is solving for.
+//
+// Takes the ref rather than creating and returning one: the eslint-plugin-
+// react-hooks "refs" rule flags a ref threaded back out through a hook's
+// return value, since it can no longer prove nothing else in that returned
+// object was itself read from ref.current during render. Owning the ref in
+// the component and only handing back the plain number sidesteps that.
+function useFitNoteSize(
+  ref: React.RefObject<HTMLSpanElement | null>,
+  text: string,
+): number {
+  const [fontSize, setFontSize] = useState(NOTE_MAX_CQW);
 
-/* A point in 0..1 of the board's width and height. Two jobs: strokes survive a
-   resize (the backing store is rebuilt at the new size and the same normalised
-   points replayed into it), and every client shares one coordinate space
-   regardless of viewport.
+  useLayoutEffect(() => {
+    const maybeEl = ref.current;
+    if (!maybeEl) {
+      return;
+    }
+    // Rebound so the nested closures below see it as definitely non-null: TS
+    // does not carry the `if (!maybeEl) return` narrowing into a function
+    // declared afterward, even though this binding is never reassigned.
+    const el = maybeEl;
 
-   Note the board is not 4:3 — it is 61.04% x 72.5% of a 16:9 box, so about
-   3:2 — while shared/types.ts calls the canonical canvas 800x600. Scaling 0..1
-   onto 800x600 therefore stretches slightly on the vertical. That is harmless
-   because the layout box is locked to 16:9 for everyone, so every client
-   stretches identically and all see the same picture; the conversion lives in
-   DrawingRoundLive. */
-export type NormPoint = { x: number; y: number };
+    function fit() {
+      // The note sits inside a container-query ancestor that can measure zero
+      // width for a moment — observed here mid dev-server recompile, but the
+      // same race exists at first paint any time a browser has not yet settled
+      // the container's real size. Fitting against that would lock in whatever
+      // size the loop happened to land on (the effect only re-runs when `text`
+      // changes) and never correct itself. Skip and wait for the observer below
+      // to fire again once there is something real to measure against.
+      if (el.clientWidth === 0 || el.clientHeight === 0) {
+        return;
+      }
+      let size = NOTE_MAX_CQW;
+      el.style.fontSize = `${size}cqw`;
+      while (
+        size > NOTE_MIN_CQW &&
+        (el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight)
+      ) {
+        size = Math.max(NOTE_MIN_CQW, size - NOTE_STEP_CQW);
+        el.style.fontSize = `${size}cqw`;
+      }
+      setFontSize(size);
+    }
 
-export interface RenderStroke {
-  id: string;
-  colour: string;
-  points: NormPoint[];
+    fit();
+    // Safety net around the zero-size guard above, and around anything else
+    // that could change the real box size after this mounts (a window resize
+    // mid-round, in case a future layout change breaks the cqw-scales-with-it
+    // assumption this otherwise relies on). Font-size mutations inside fit()
+    // do not feed back into this: the note's own box is a percentage of its
+    // ancestor, not shrink-to-fit around its content, so changing its text
+    // size does not change its clientWidth/clientHeight.
+    const observer = new ResizeObserver(fit);
+    observer.observe(el);
+    return () => observer.disconnect();
+    // ref is a useRef object: its identity never changes across renders, so it
+    // cannot be a missing reactive dependency — only `text` should re-trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text]);
+
+  return fontSize;
 }
 
 export interface RosterPlayer {
@@ -119,49 +178,102 @@ interface DrawingRoundProps {
   players: RosterPlayer[];
   currentDrawerId: PlayerId | null;
   myPlayerId: PlayerId;
-  myColour: string;
   hint: Hint;
-  strokes: RenderStroke[];
-  // Server-decided: this player's turn, and they have not used it yet.
+  // Whether the decorative pencil tracks the pointer. This screen never draws
+  // itself — that is Canvas's job — so this is a display cue, not a lock: the
+  // real gate on whether a stroke is accepted lives in Canvas's own myTurn
+  // prop and, behind that, in the server.
   canDraw: boolean;
   phaseEndsAt: number | null;
   pass: 1 | 2;
-  notice?: string | null;
-  onStrokeEnd?: (points: NormPoint[]) => void;
+  // The drawing surface itself. In play this is teammates' <Canvas>, which
+  // owns every stroke, every socket emission, and the turn-lock; the offline
+  // preview passes a blank placeholder instead. Either way this component
+  // only sizes and frames it — it never reaches into what strokes exist.
+  board: ReactNode;
 }
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
-
-// ~60 points/sec, per T11. The pencil still follows every pointermove; only the
-// points committed to the stroke are thinned.
-const POINT_INTERVAL_MS = 16;
 
 export default function DrawingRound({
   players,
   currentDrawerId,
   myPlayerId,
-  myColour,
   hint,
-  strokes,
   canDraw,
   phaseEndsAt,
   pass,
-  notice,
-  onStrokeEnd,
+  board,
 }: DrawingRoundProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  // Only ever the in-progress stroke. Committed strokes arrive as props, so
-  // there is one source of truth for what is on the board.
-  const strokeRef = useRef<NormPoint[] | null>(null);
-  const lastPointAt = useRef(0);
+  const boardOuterRef = useRef<HTMLDivElement>(null);
+
+  // Scales the fixed TEAMMATE_CANVAS_WIDTH/HEIGHT box up or down to exactly
+  // fill the board slot, whatever size that slot renders at. 1/1 until the
+  // first measurement — same value on the server and on the first client
+  // render, so hydration still matches; ResizeObserver only runs after mount.
+  const [scale, setScale] = useState({ x: 1, y: 1 });
+
+  useEffect(() => {
+    const el = boardOuterRef.current;
+    if (!el) {
+      return;
+    }
+    const observer = new ResizeObserver(() => {
+      setScale({
+        x: el.clientWidth / TEAMMATE_CANVAS_WIDTH,
+        y: el.clientHeight / TEAMMATE_CANVAS_HEIGHT,
+      });
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   // null parks the pencil where the design rests it; `down` is whether it is
-  // touching the paper, which only changes how far it lifts along its own shaft.
+  // touching the paper, which only changes how far it lifts along its own
+  // shaft. This never drives a stroke — it is purely what the pencil icon
+  // draws, kept in sync with the pointer by listening on the board wrapper
+  // rather than on Canvas's own <canvas>, so it rides on top of Canvas's
+  // pointer handling without touching it: nothing here calls
+  // preventDefault or stopPropagation, so the same pointerdown/move/up that
+  // moves this pencil still reaches Canvas underneath and drives the real
+  // stroke exactly as it would with no pencil overlay at all.
   const [pencil, setPencil] = useState<{
     x: number;
     y: number;
     down: boolean;
   } | null>(null);
+
+  function pointFrom(event: React.PointerEvent<HTMLDivElement>) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return {
+      x: clamp01((event.clientX - rect.left) / rect.width) * 100,
+      y: clamp01((event.clientY - rect.top) / rect.height) * 100,
+    };
+  }
+
+  function handlePointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    if (!canDraw) {
+      return;
+    }
+    setPencil({ ...pointFrom(event), down: true });
+  }
+
+  function handlePointerMove(event: React.PointerEvent<HTMLDivElement>) {
+    if (!canDraw) {
+      return;
+    }
+    // Read while the event is still live: currentTarget is nulled once
+    // dispatch finishes, and a setState updater can run after that point
+    // rather than synchronously inside this handler — calling pointFrom(event)
+    // from inside the updater below crashed the whole tree on exactly that
+    // race, confirmed live with a real drag (getBoundingClientRect on null).
+    const point = pointFrom(event);
+    setPencil((current) => ({ ...point, down: current?.down ?? false }));
+  }
+
+  function handlePointerUp() {
+    setPencil((current) => (current ? { ...current, down: false } : current));
+  }
 
   // phaseEndsAt is null outside a timed phase, and null on the very first render
   // of a screen whose deadline can only be known on the client. Rendering a
@@ -176,154 +288,8 @@ export default function DrawingRound({
   const currentDrawer =
     players.find((player) => player.id === currentDrawerId) ?? null;
 
-  const redraw = useCallback(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    if (!canvas || !ctx) {
-      return;
-    }
-    const { width, height } = canvas;
-    ctx.clearRect(0, 0, width, height);
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.lineWidth = Math.max(2, width * 0.004);
-
-    const live = strokeRef.current;
-    const all: RenderStroke[] = live
-      ? [...strokes, { id: "live", colour: myColour, points: live }]
-      : strokes;
-
-    for (const stroke of all) {
-      const [first, ...rest] = stroke.points;
-      if (!first) {
-        continue;
-      }
-      // Each stroke carries its owner's colour, which is what makes the
-      // finished drawing readable as a sequence of contributions during the
-      // vote.
-      ctx.strokeStyle = stroke.colour;
-      ctx.beginPath();
-      ctx.moveTo(first.x * width, first.y * height);
-      for (const point of rest) {
-        ctx.lineTo(point.x * width, point.y * height);
-      }
-      // A tap with no drag still leaves a dot, thanks to the round line cap.
-      if (rest.length === 0) {
-        ctx.lineTo(first.x * width, first.y * height);
-      }
-      ctx.stroke();
-    }
-  }, [strokes, myColour]);
-
-  // Committed strokes changing (someone else's turn landing, or a new round
-  // clearing the board) has to reach the canvas, which React does not touch.
-  useEffect(() => {
-    redraw();
-  }, [redraw]);
-
-  // The board is sized as a fraction of the viewport, so the backing store has
-  // to be rebuilt — and the strokes replayed — whenever that fraction changes.
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      return;
-    }
-    const observer = new ResizeObserver(() => {
-      const ratio = window.devicePixelRatio || 1;
-      canvas.width = Math.max(1, Math.round(canvas.clientWidth * ratio));
-      canvas.height = Math.max(1, Math.round(canvas.clientHeight * ratio));
-      redraw();
-    });
-    observer.observe(canvas);
-    return () => observer.disconnect();
-  }, [redraw]);
-
-  // The turn can be taken away mid-stroke — the 20s timer expires and the
-  // server moves on. Anything still under the pencil was never sent, so it is
-  // dropped rather than left hanging on the board.
-  useEffect(() => {
-    if (!canDraw && strokeRef.current) {
-      strokeRef.current = null;
-      setPencil(null);
-      redraw();
-    }
-  }, [canDraw, redraw]);
-
-  function pointFrom(event: React.PointerEvent<HTMLCanvasElement>): NormPoint {
-    const rect = event.currentTarget.getBoundingClientRect();
-    return {
-      x: clamp01((event.clientX - rect.left) / rect.width),
-      y: clamp01((event.clientY - rect.top) / rect.height),
-    };
-  }
-
-  function handlePointerDown(event: React.PointerEvent<HTMLCanvasElement>) {
-    // A non-drawer touching the board does nothing at all: no stroke, no
-    // emission. The server would reject it anyway, but it should never get
-    // that far.
-    if (!canDraw || strokeRef.current) {
-      return;
-    }
-    event.currentTarget.setPointerCapture(event.pointerId);
-    const point = pointFrom(event);
-    strokeRef.current = [point];
-    lastPointAt.current = performance.now();
-    setPencil({ x: point.x * 100, y: point.y * 100, down: true });
-    redraw();
-  }
-
-  function handlePointerMove(event: React.PointerEvent<HTMLCanvasElement>) {
-    if (!canDraw) {
-      return;
-    }
-    const point = pointFrom(event);
-    setPencil({
-      x: point.x * 100,
-      y: point.y * 100,
-      down: strokeRef.current !== null,
-    });
-    if (!strokeRef.current) {
-      return;
-    }
-    const now = performance.now();
-    if (now - lastPointAt.current < POINT_INTERVAL_MS) {
-      return;
-    }
-    lastPointAt.current = now;
-    strokeRef.current.push(point);
-    redraw();
-  }
-
-  // pointerup and pointercancel both land here: cancelling mid-stroke commits
-  // whatever exists rather than costing the player their turn (T11).
-  function endStroke(event: React.PointerEvent<HTMLCanvasElement>) {
-    const points = strokeRef.current;
-    strokeRef.current = null;
-    setPencil((current) => (current ? { ...current, down: false } : current));
-    if (!points || points.length === 0) {
-      return;
-    }
-    // Throttling can have dropped the last few milliseconds of movement, so the
-    // lift point goes on explicitly and the stroke ends where the hand did.
-    points.push(pointFrom(event));
-
-    // Lifting the pointer is the whole turn. The stroke goes up, and what comes
-    // back down as state decides what the board looks like next — so the repaint
-    // is left to that, which would otherwise blank the stroke for a frame.
-    if (onStrokeEnd) {
-      onStrokeEnd(points);
-    } else {
-      redraw();
-    }
-  }
-
-  function handlePointerLeave() {
-    // Mid-stroke the pointer is captured, so a leave here means the hand really
-    // has left the paper and the pencil goes back to where it rests.
-    if (!strokeRef.current) {
-      setPencil(null);
-    }
-  }
+  const noteRef = useRef<HTMLSpanElement>(null);
+  const noteFontSize = useFitNoteSize(noteRef, hint.text);
 
   const rowHeight = ROSTER.height / Math.max(1, players.length);
   // Big enough to read, but never wider than the panel nor taller than its row.
@@ -337,7 +303,7 @@ export default function DrawingRound({
       : "Waiting for the next turn";
 
   // The root is w-full because this screen mounts in two places: standalone at
-  // /drawing, and inside the lobby's centring flex column, where a
+  // /drawing, and inside the app's centring flex column, where a
   // shrink-to-fit root would pull the background in with it.
   return (
     <div className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden font-sans">
@@ -454,6 +420,7 @@ export default function DrawingRound({
           }}
         >
           <span
+            ref={noteRef}
             className={`absolute flex items-center justify-center overflow-hidden text-center leading-tight font-bold tracking-wide ${
               hint.kind === "category" ? "italic" : ""
             }`}
@@ -463,7 +430,7 @@ export default function DrawingRound({
               width: `${NOTE_BODY.width}%`,
               height: `${NOTE_BODY.height}%`,
               color: INK,
-              fontSize: `${noteSize(hint.text)}cqw`,
+              fontSize: `${noteFontSize}cqw`,
             }}
           >
             {hint.kind === "word" ? hint.text.toUpperCase() : hint.text}
@@ -480,28 +447,41 @@ export default function DrawingRound({
           )}
         </div>
 
-        {/* Board: the drawing surface, with the pencil riding on top of it. */}
+        {/* Board: teammates' <Canvas> scaled to fill this slot, with the pencil
+            riding on top of it. */}
         <div
-          className="absolute"
+          ref={boardOuterRef}
+          className="absolute overflow-hidden"
           style={{
             left: `${BOARD.left}%`,
             top: `${BOARD.top}%`,
             width: `${BOARD.width}%`,
             height: `${BOARD.height}%`,
+            cursor: canDraw ? "none" : undefined,
           }}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          onPointerLeave={handlePointerUp}
         >
-          <canvas
-            ref={canvasRef}
-            aria-label={`Shared drawing board. ${turnLabel}.`}
-            className={`h-full w-full ${
-              canDraw ? "cursor-none touch-none" : "cursor-default"
-            }`}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={endStroke}
-            onPointerCancel={endStroke}
-            onPointerLeave={handlePointerLeave}
-          />
+          {/* Canvas renders itself at a fixed TEAMMATE_CANVAS_WIDTH x HEIGHT
+              CSS size regardless of this wrapper. Scaling this box (rather than
+              Canvas's own element) leaves Canvas's DPR and coordinate math
+              untouched: getBoundingClientRect already reports the post-transform
+              size, so the fractions it computes from a pointer event are correct
+              at any scale, and clientWidth/clientHeight — what it sizes its
+              backing store from — are unaffected by a transform on an ancestor. */}
+          <div
+            style={{
+              width: `${TEAMMATE_CANVAS_WIDTH}px`,
+              height: `${TEAMMATE_CANVAS_HEIGHT}px`,
+              transform: `scale(${scale.x}, ${scale.y})`,
+              transformOrigin: "top left",
+            }}
+          >
+            {board}
+          </div>
           {/* Anchored by its tip: translating back by the tip's own offset puts
               the tip on the board coordinate above, and rotating about that same
               point keeps it there. The last translate slides the pencil up its
@@ -523,13 +503,12 @@ export default function DrawingRound({
           )}
         </div>
 
-        {/* Whose turn it is, and anything the server pushed back. Sits under the
-            board in the frame's bottom margin. */}
+        {/* Whose turn it is. Sits under the board in the frame's bottom margin. */}
         <p
           className="absolute left-0 top-[87%] w-full text-center font-bold tracking-wide"
           style={{ color: INK, fontSize: "1.1cqw" }}
         >
-          {notice ?? turnLabel}
+          {turnLabel}
         </p>
       </div>
     </div>
