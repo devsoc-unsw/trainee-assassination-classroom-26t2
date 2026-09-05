@@ -13,11 +13,8 @@ interface DrawingRoundScreenProps {
   socket: AppSocket;
 }
 
-// Pure prop-mapping from what Game.tsx already has in scope onto DrawingRound's
-// art and Canvas's drawing surface — no new socket subscription, no stroke
-// handling of its own. The state and the room both already exist by the time
-// this mounts (Game.tsx only renders this once gameState.phase is "DRAWING"),
-// so there is nothing here to load.
+// Pure prop-mapping from Game.tsx's state onto DrawingRound and Canvas — no
+// socket subscription or stroke handling of its own.
 export function DrawingRoundScreen({
   room,
   gameState,
@@ -69,9 +66,7 @@ export function DrawingRoundScreen({
           />
         }
       />
-      {/* The other in-round phases (app/game.tsx) keep this reachable too; the
-          split into a separate screen for DRAWING should not make it any
-          harder to leave the room mid-round. */}
+      {/* Keep the room reachable mid-round, same as the other in-round phases. */}
       <div className="fixed left-4 top-4 z-10">
         <HomeButton socket={socket} />
       </div>
