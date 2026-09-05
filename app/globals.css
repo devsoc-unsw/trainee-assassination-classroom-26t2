@@ -67,6 +67,13 @@ body {
   animation: boil 1s steps(2, jump-none) infinite;
 }
 
+.frame-non-imposter-card {
+  background-image: url("/images/drawing-round/non-imposter-category-word.png");
+  background-repeat: no-repeat;
+  background-size: 140px 320px;
+  background-position: 0 0;
+}
+
 .frame-imposter-chameleon-reveal {
   background-image: url("/images/drawing-round/imposter-chameleon-reveal.png");
   background-repeat: no-repeat;
