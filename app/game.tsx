@@ -136,12 +136,14 @@ export function Game({
     return (
       <>
         <h1>Game Over!</h1>
-        <HomeButton
-          setGameState={setGameState}
-          setRoomState={setRoomState}
-          socket={socket}
-        />
-        <ReplayButton socket={socket} />
+        <div style={{ display: "inline-flex" }}>
+          <HomeButton
+            setGameState={setGameState}
+            setRoomState={setRoomState}
+            socket={socket}
+          />
+          <ReplayButton socket={socket} />
+        </div>
       </>
     );
   }

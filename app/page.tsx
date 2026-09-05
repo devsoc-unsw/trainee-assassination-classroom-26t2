@@ -7,7 +7,6 @@ import { getPlayerId, subscribe } from "./lib/identity";
 import { SERVER_EVENTS } from "@/shared/events";
 import { PublicGameState, PublicRoom } from "@/shared/types";
 import { useSocket } from "./socket-provider";
-import { Timer } from "./components/game/Timer";
 
 export default function Home() {
   const playerId = useSyncExternalStore(subscribe, getPlayerId, () => "");
@@ -18,7 +17,7 @@ export default function Home() {
   const [room, setRoom] = useState<PublicRoom | null>(null);
 
   useEffect(() => {
-    const handleRoomUpdated = (publicRoom: PublicRoom) => setRoom(publicRoom);
+    const handleRoomUpdated = (publicRoom: PublicRoom|null) => setRoom(publicRoom);
     socket.on(SERVER_EVENTS.ROOM_UPDATED, handleRoomUpdated);
     return () => {
       socket.off(SERVER_EVENTS.ROOM_UPDATED, handleRoomUpdated);
@@ -26,7 +25,7 @@ export default function Home() {
   }, [socket]);
 
   useEffect(() => {
-    const handleStateUpdated = (state: PublicGameState) => setGameState(state);
+    const handleStateUpdated = (state: PublicGameState|null) => setGameState(state);
     socket.on(SERVER_EVENTS.STATE_UPDATED, handleStateUpdated);
     return () => {
       socket.off(SERVER_EVENTS.STATE_UPDATED, handleStateUpdated);
@@ -67,7 +66,6 @@ export default function Home() {
 
   return (
     <>
-      <Timer state={gameState} />
       <Game
         room={room}
         socket={socket}

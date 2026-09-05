@@ -14,12 +14,14 @@ function replay(socket: AppSocket): Promise<Result<void>> {
 }
 
 export function ReplayButton({ socket }: ReplayButtonProps) {
-  return (
+    return (
+    <div className="home-button-wrap flex flex-col items-center gap-1">
       <button
         type="button"
         onClick={() => replay(socket)}
-      >
-        REPLAY
-      </button>
+        disabled={false}
+        className="w-55 py-3 px-4 text-lg rounded-xl frame-restart-button disabled:cursor-not-allowed disabled:opacity-40"
+      ></button>
+    </div>
   );
 }
