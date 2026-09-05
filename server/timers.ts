@@ -8,7 +8,7 @@ export const PHASE_DURATIONS_MS = {
   DRAWING: 20_000,
   VOTING: 45_000,
   FINAL_GUESS: 20_000,
-  ROUND_REVEAL: 15_000,
+  ROUND_REVEAL: 30_000,
 } as const satisfies Partial<Record<Phase, number>>;
 
 export type TimedPhase = keyof typeof PHASE_DURATIONS_MS;

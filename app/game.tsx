@@ -9,6 +9,7 @@ import { ImposterGuess } from "./components/game/ImposterGuess";
 import { HomeButton } from "./components/HomeButton";
 import { AppSocket } from "./socket-provider";
 import { ReplayButton } from "./components/game/ReplayButton";
+import { RoundReveal } from "./components/game/RoundReveal";
 import { DrawingRoundScreen } from "./components/drawing-round/DrawingRoundScreen";
 
 interface GameProps {
@@ -102,7 +103,13 @@ export function Game({
   if (gameState.phase == "ROUND_REVEAL") {
     return (
       <>
-        <h1>Round reveal (unimplemented)</h1>
+        <RoundReveal
+          key={gameState.roundNumber}
+          room={room}
+          gameState={gameState}
+          playerId={playerId}
+          socket={socket}
+        />
         <HomeButton
           setGameState={setGameState}
           setRoomState={setRoomState}

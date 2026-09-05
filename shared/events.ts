@@ -16,6 +16,7 @@ export const CLIENT_EVENTS = {
   STROKE_END: "stroke_end",
   CAST_VOTE: "cast_vote",
   SUBMIT_GUESS: "submit_guess",
+  REVEAL_READY: "reveal_ready",
   READY: "ready",
   START_GAME: "start_game",
   TIME_SYNC: "time_sync",
@@ -74,6 +75,7 @@ export interface ClientToServerEvents {
 
   cast_vote: (payload: { targetId: PlayerId }) => void;
   submit_guess: (payload: { text: string }) => void;
+  reveal_ready: () => void;
   ready: (payload: { ready: boolean }) => void;
   start_game: (ack: (result: Result<void>) => void) => void;
 

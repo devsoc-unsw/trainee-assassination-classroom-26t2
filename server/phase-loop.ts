@@ -24,6 +24,7 @@ export interface PhaseLoopDeps {
 export interface PhaseLoop {
   enterPhase: (room: Room, next: GameState) => void;
   onPhaseExpired: (roomCode: RoomCode) => void;
+  settleRoundReveal: (room: Room) => void;
 }
 
 // The transition to run when a phase has used up its whole timer. Returns null
@@ -78,18 +79,34 @@ export function createPhaseLoop({
       return;
     }
     enterPhase(room, next.data);
+    followThroughScoring(room);
+  }
 
-    if (room.state.phase === "SCORING") {
-      if (isGameOver(room.state)) {
-        const over = endGame(room.state);
-        if (over.ok) {
-          enterPhase(room, over.data);
-        }
-      } else {
-        startNextRound(room);
+  function followThroughScoring(room: Room): void {
+    if (room.state.phase !== "SCORING") {
+      return;
+    }
+    if (isGameOver(room.state)) {
+      const over = endGame(room.state);
+      if (over.ok) {
+        enterPhase(room, over.data);
       }
+    } else {
+      startNextRound(room);
     }
   }
 
-  return { enterPhase, onPhaseExpired };
+  function settleRoundReveal(room: Room): void {
+    const ended = endRoundReveal(room.state);
+    if (!ended.ok) {
+      console.warn(
+        `[room ${room.code}] end_round_reveal rejected on early exit: ${ended.message}`,
+      );
+      return;
+    }
+    enterPhase(room, ended.data);
+    followThroughScoring(room);
+  }
+
+  return { enterPhase, onPhaseExpired, settleRoundReveal };
 }

@@ -15,6 +15,7 @@ interface CanvasProps {
   socket: AppSocket;
   myTurn: boolean;
   strokes: Stroke[] | undefined;
+  highlightPlayerId?: PlayerId | null;
 }
 
 interface DrawState {
@@ -136,6 +137,63 @@ export function updateCanvas(
   }
 }
 
+function drawFullStroke(
+  ctx: CanvasRenderingContext2D,
+  component: HTMLCanvasElement,
+  stroke: Stroke,
+  alpha: number,
+  widthMultiplier: number,
+) {
+  if (stroke.points.length === 0) {
+    return;
+  }
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = stroke.colour;
+  ctx.lineWidth = STROKE_WIDTH * widthMultiplier;
+  ctx.beginPath();
+  const [first, ...rest] = stroke.points;
+  ctx.moveTo(first.x * component.clientWidth, first.y * component.clientHeight);
+  for (const point of rest) {
+    ctx.lineTo(
+      point.x * component.clientWidth,
+      point.y * component.clientHeight,
+    );
+  }
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
+export function renderRevealCanvas(
+  drawState: DrawState,
+  component: HTMLCanvasElement,
+  strokes: Stroke[],
+  highlightPlayerId: PlayerId | null,
+) {
+  const ctx = ensureCtx(drawState, component);
+  if (ctx == null) {
+    return;
+  }
+  ctx.clearRect(0, 0, component.width, component.height);
+
+  if (highlightPlayerId == null) {
+    for (const stroke of strokes) {
+      drawFullStroke(ctx, component, stroke, 1, 1);
+    }
+    return;
+  }
+
+  for (const stroke of strokes) {
+    if (stroke.playerId !== highlightPlayerId) {
+      drawFullStroke(ctx, component, stroke, 0.3, 1);
+    }
+  }
+  for (const stroke of strokes) {
+    if (stroke.playerId === highlightPlayerId) {
+      drawFullStroke(ctx, component, stroke, 1, 1.75);
+    }
+  }
+}
+
 function startDraw(
   drawState: DrawState,
   component: HTMLCanvasElement,
@@ -241,6 +299,7 @@ export function Canvas({
   socket,
   myTurn,
   strokes,
+  highlightPlayerId,
 }: CanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawStateRef = useRef<DrawState>(createDrawState());
@@ -248,12 +307,19 @@ export function Canvas({
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || strokes == null) return;
 
-    if (strokes != null) {
+    if (highlightPlayerId !== undefined) {
+      renderRevealCanvas(
+        drawStateRef.current,
+        canvas,
+        strokes,
+        highlightPlayerId,
+      );
+    } else {
       updateCanvas(drawStateRef.current, canvas, strokes);
     }
-  }, [strokes]);
+  }, [strokes, highlightPlayerId]);
 
   useEffect(() => {
     if (myTurn && !wasMyTurnRef.current) {
