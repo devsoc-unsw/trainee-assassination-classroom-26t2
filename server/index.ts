@@ -162,7 +162,6 @@ function broadcastState(roomCode: RoomCode, room: Room) {
   for (const socketId of socketIds) {
     const memberSocket = io.sockets.sockets.get(socketId);
     const playerId = memberSocket?.data.playerId;
-    console.log(playerId); //TODO: Remove
     if (memberSocket && playerId) {
       memberSocket.emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
       memberSocket.emit(

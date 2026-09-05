@@ -41,9 +41,6 @@ function timeoutTransition(state: GameState): Result<GameState> | null {
       return toRoundRevealFromFinalGuess(state);
     case "ROUND_REVEAL":
       return endRoundReveal(state);
-      //TODO: Eventually uncomment below
-    // case "SCORING":
-    //   return nextRoundOrEndGame(state);
     default:
       return null;
   }

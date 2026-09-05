@@ -78,8 +78,6 @@ export default function Home() {
     );
   }
 
-  // TODO: If message exists it should be displayed on the screen somewhere.
-
   const inLobby =
     room === null || gameState === null || gameState.phase === "LOBBY";
 
