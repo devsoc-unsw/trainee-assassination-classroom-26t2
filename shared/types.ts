@@ -67,6 +67,7 @@ export interface GameState {
   pass: 1 | 2;
   turnIndex: number;
   turnOrder: PlayerId[];
+  strokeSubmittedThisTurn: boolean;
   word: string;
   category: string;
   imposterId: PlayerId | null;
@@ -80,7 +81,7 @@ export interface GameState {
 }
 
 export type ImposterSecret = { isImposter: true; category: string };
-export type GroupSecret = { isImposter:false; category: string; word: string };
+export type GroupSecret = { category: string; word: string };
 export type PlayerSecret = ImposterSecret | GroupSecret;
 
 export interface RoundReveal {
