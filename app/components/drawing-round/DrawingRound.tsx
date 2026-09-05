@@ -30,8 +30,15 @@ const HEIGHT_TO_WIDTH = 9 / 16;
 const ARROW = { left: 4.9, width: 5.3 };
 
 // Clock and note hang in the top margin, the note's right edge flush with the
-// board's, the way the design lines them up.
-const CLOCK = { right: 22.4, top: 1.25, width: 4.6 };
+// board's, the way the design lines them up. Their tops are not equal because
+// they are not the same shape: the clock's art is 757 wide by 887 tall and the
+// note's is 447 wide by 225 tall, so at these widths the clock stands about
+// 5.39 tall against the note's 4.43. Matching `top` on the two would line up
+// their upper edges and leave the clock's centre visibly low against the
+// note's, which is what the mismatch in the drawing round looked like before
+// this was picked to centre them instead: clock top plus half its own height
+// equals note top plus half the note's height.
+const CLOCK = { right: 22.4, top: 0.32, width: 4.6 };
 const NOTE = { right: 12.66, top: 0.8, width: 8.8 };
 
 // Cream interiors of those two, as percentages of their own art box — where the
