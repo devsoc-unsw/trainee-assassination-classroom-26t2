@@ -37,7 +37,7 @@ export function SecretDisplay({ secret }: SecretDisplayProps) {
             aria-hidden
         />
         <div className="absolute left-[110px] right-[10px] top-[8px] bottom-[52px] flex flex-col items-center justify-center gap-1 text-center">
-            <p className="text-xs font-bold text-black">Word: {secret.word}</p>
+            <p className="text-xs font-bold text-black">The Word: {secret.word}</p>
         </div>
 
         </div>
