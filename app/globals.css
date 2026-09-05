@@ -310,6 +310,38 @@ body {
   background-image: url("/images/drawing-round/draw-pencil2.png");
 }
 
+/* VOTING splash: the hand-drawn "VOTE!" mark, a two-frame boil sheet like the
+   lobby art. .animate-boil supplies the repeat / size / animation; the cell is
+   half the 1200x880 sheet. */
+.frame-vote {
+  background-image: url("/images/voting/vote-boil.png");
+  aspect-ratio: 1200 / 440;
+}
+
+.art-vote-hand {
+  aspect-ratio: 1658 / 837;
+  background-repeat: no-repeat;
+  background-size: 123.522% 244.683%;
+  background-position: 53.333% 51.197%;
+  background-image: url("/images/voting/hand-point.png");
+}
+
+.art-vote-hand-accuse {
+  aspect-ratio: 1683 / 873;
+  background-repeat: no-repeat;
+  background-size: 121.688% 234.594%;
+  background-position: 58.356% 50.979%;
+  background-image: url("/images/voting/hand-point-accuse.png");
+}
+
+.art-accuse-badge {
+  aspect-ratio: 1011 / 957;
+  background-repeat: no-repeat;
+  background-size: 202.572% 214.003%;
+  background-position: 46.866% 37.764%;
+  background-image: url("/images/voting/accuse-badge.png");
+}
+
 /* Roster avatars scale with the layout box instead of the fixed AvatarBlob
    presets, so they stay proportional to the panel at any viewport size. */
 .avatar-fluid {

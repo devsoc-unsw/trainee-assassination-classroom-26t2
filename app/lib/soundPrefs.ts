@@ -1,12 +1,4 @@
-// Whether the player has muted game sound (round music, timer SFX). Kept
-// outside React and outside DrawingRoundScreen's own state, since that
-// component unmounts every round when voting starts and remounts fresh for
-// the next one — a plain useState there would forget the player's choice
-// after a single round. localStorage rather than sessionStorage, since a
-// mute preference is the kind of thing a player would expect to survive a
-// reload too, not just the current tab. Same subscribe/getSnapshot shape as
-// app/lib/identity.ts, for the same reason: useSyncExternalStore, not
-// Context, for one small piece of state read from a couple of places.
+// Whether the player has muted game sound (round music, timer SFX).
 
 const MUTED_KEY = "ac:soundMuted";
 
