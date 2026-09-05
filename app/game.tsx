@@ -43,7 +43,9 @@ export function Game({ room, gameState }: GameProps) {
   if (gameState.phase === "VOTING" || gameState.phase === "FINAL_GUESS") {
     return (
       <>
-        <SecretDisplay secret={gameState.secret} />
+        {gameState.phase === "FINAL_GUESS" && (
+          <SecretDisplay secret={gameState.secret} />
+        )}
         <main className="flex w-full max-w-6xl flex-1 flex-col items-center py-12 px-6 sm:py-16 sm:px-8 md:py-16 md:px-12">
           <h1>{`${gameState.phase}: ${playerUp}'s turn!`}</h1>
           <Canvas
@@ -57,7 +59,9 @@ export function Game({ room, gameState }: GameProps) {
           {gameState.phase === "VOTING" && (
             <VotingScreen players={room.players} socket={socket} />
           )}
-          {gameState.phase === "FINAL_GUESS" && <ImposterGuess socket={socket} />}
+          {gameState.phase === "FINAL_GUESS" && (
+            <ImposterGuess socket={socket} />
+          )}
           <HomeButton socket={socket} />
         </main>
       </>
@@ -86,9 +90,14 @@ export function Game({ room, gameState }: GameProps) {
     );
   }
 
+  const showSecret =
+    gameState.phase !== "ROUND_REVEAL" &&
+    gameState.phase !== "SCORING" &&
+    gameState.phase !== "GAME_OVER";
+
   return (
     <>
-      <SecretDisplay secret={gameState.secret} />
+      {showSecret && <SecretDisplay secret={gameState.secret} />}
       {content}
     </>
   );
