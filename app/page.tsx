@@ -7,6 +7,7 @@ import { getPlayerId, subscribe } from "./lib/identity";
 import { SERVER_EVENTS } from "@/shared/events";
 import { PublicGameState, PublicRoom } from "@/shared/types";
 import { useSocket } from "./socket-provider";
+import { Timer } from "./components/game/Timer";
 
 export default function Home() {
   const playerId = useSyncExternalStore(subscribe, getPlayerId, () => "");
@@ -54,10 +55,15 @@ export default function Home() {
             transform: "scale(1.75)",
           }}
         />
-        <Lobby room={room} />
+        <Lobby room={room} socket={socket} />
       </div>
     );
   }
 
-  return <Game room={room} gameState={gameState} />;
+  return (
+    <>
+      <Timer state={gameState} />
+      <Game room={room} socket={socket} gameState={gameState} setGameState={setGameState} setRoomState={setRoom} />;
+    </>
+  );
 }

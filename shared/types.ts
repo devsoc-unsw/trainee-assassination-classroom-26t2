@@ -1,4 +1,4 @@
-export const MIN_PLAYERS = 4;
+export const MIN_PLAYERS = 2;//TODO: Set this back to 4
 export const MAX_PLAYERS = 8;
 
 export const ROUNDS_PER_GAME = 3;

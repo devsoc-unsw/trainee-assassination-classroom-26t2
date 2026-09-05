@@ -13,14 +13,14 @@ import {
   setStoredSession,
   subscribe,
 } from "./lib/identity";
-import { useSocket } from "./socket-provider";
+import { AppSocket } from "./socket-provider";
 
 interface LobbyProps {
   room: PublicRoom | null;
+  socket: AppSocket;
 }
 
-export function Lobby({ room }: LobbyProps) {
-  const socket = useSocket();
+export function Lobby({ room, socket }: LobbyProps) {
   const playerId = useSyncExternalStore(subscribe, getPlayerId, () => "");
   const storedSession = useSyncExternalStore(
     subscribe,

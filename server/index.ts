@@ -153,6 +153,7 @@ function broadcastState(roomCode: RoomCode, room: Room) {
     const memberSocket = io.sockets.sockets.get(socketId);
     const playerId = memberSocket?.data.playerId;
     if (memberSocket && playerId) {
+      memberSocket.emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room))
       memberSocket.emit(
         SERVER_EVENTS.STATE_UPDATED,
         serialiseStateFor(playerId, room),
@@ -570,17 +571,13 @@ io.on("connection", (socket) => {
 
     }
 
-    const left = leaveRoom(roomCode, playerId);
-    if (!left) {
-      console.warn(
-        `[room ${roomCode}] leave_room rejected`,
-      );
-      ack({ ok: false, code: "ROOM_NOT_FOUND", message: "Not in a room." });
-      return;
-    }
+    leaveRoom(roomCode, playerId);
+
     ack({ ok: true, data: undefined });
 
     broadcastState(roomCode, room);
+
+    socket.emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room))
 
   })
 
