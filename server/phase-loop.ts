@@ -6,8 +6,10 @@ import type { Result } from "@/shared/events";
 import type { GameState, Room, RoomCode } from "@/shared/types";
 import {
   advanceTurn,
+  endGame,
   beginDrawing,
   endRoundReveal,
+  isGameOver,
   settleVoting,
   toRoundRevealFromFinalGuess,
 } from "./state";
@@ -16,6 +18,7 @@ import { armPhaseTimer } from "./timers";
 export interface PhaseLoopDeps {
   getRoom: (code: RoomCode) => Room | null;
   broadcast: (room: Room) => void;
+  startNextRound: (room: Room) => void;
 }
 
 export interface PhaseLoop {
@@ -47,6 +50,7 @@ function timeoutTransition(state: GameState): Result<GameState> | null {
 export function createPhaseLoop({
   getRoom,
   broadcast,
+  startNextRound,
 }: PhaseLoopDeps): PhaseLoop {
   function enterPhase(room: Room, next: GameState): void {
     const endsAt = armPhaseTimer(room.code, next.phase, () =>
@@ -73,6 +77,17 @@ export function createPhaseLoop({
       return;
     }
     enterPhase(room, next.data);
+
+    if (room.state.phase === "SCORING") {
+      if (isGameOver(room.state)) {
+        const over = endGame(room.state);
+        if (over.ok) {
+          enterPhase(room, over.data);
+        }
+      } else {
+        startNextRound(room);
+      }
+    }
   }
 
   return { enterPhase, onPhaseExpired };

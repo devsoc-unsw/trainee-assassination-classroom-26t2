@@ -12,6 +12,7 @@ import {
   endGame,
   endRoundReveal,
   isCurrentDrawer,
+  isGameOver,
   pickImposter,
   resolveRoundWinner,
   serialiseStateFor,
@@ -360,6 +361,15 @@ describe("resolveRoundWinner", () => {
     expect(resolveRoundWinner(state)).toBe("IMPOSTER");
   });
 
+  it('"The Cat!" matches the word "the cat" after normalisation', () => {
+    const state = stateAt("ROUND_REVEAL", {
+      word: "the cat",
+      accusedId: PLAYERS[1],
+      finalGuess: { text: "The Cat!", submittedAt: 0 },
+    });
+    expect(resolveRoundWinner(state)).toBe("IMPOSTER");
+  });
+
   it("group wins when caught and guessed wrong", () => {
     const state = stateAt("ROUND_REVEAL", {
       accusedId: PLAYERS[1],
@@ -383,13 +393,131 @@ describe("resolveRoundWinner", () => {
     });
     expect(resolveRoundWinner(state)).toBe("GROUP");
   });
+
+  it("an empty guess never matches an empty (malformed) word", () => {
+    const state = stateAt("ROUND_REVEAL", {
+      word: "",
+      accusedId: PLAYERS[1],
+      finalGuess: { text: "", submittedAt: 0 },
+    });
+    expect(resolveRoundWinner(state)).toBe("GROUP");
+  });
+
+  it("a real guess never matches an empty (malformed) word", () => {
+    const state = stateAt("ROUND_REVEAL", {
+      word: "   ",
+      accusedId: PLAYERS[1],
+      finalGuess: { text: "anything", submittedAt: 0 },
+    });
+    expect(resolveRoundWinner(state)).toBe("GROUP");
+  });
+});
+
+describe("isGameOver", () => {
+  it("is false before the last round has been played", () => {
+    expect(isGameOver(stateAt("SCORING", { roundNumber: 2 }))).toBe(false);
+  });
+
+  it("is true once ROUNDS_PER_GAME rounds have been played", () => {
+    expect(isGameOver(stateAt("SCORING", { roundNumber: 3 }))).toBe(true);
+  });
+});
+
+describe("roundWinner is frozen when the terminal phase completes", () => {
+  it("survival branch: toRoundRevealFromVoting stores the winner (imposter)", () => {
+    const result = toRoundRevealFromVoting(stateAt("VOTING"), PLAYERS[2]);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.roundWinner).toBe("IMPOSTER");
+  });
+
+  it("tie (accusedId null) also freezes an imposter win", () => {
+    const result = toRoundRevealFromVoting(stateAt("VOTING"), null);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.roundWinner).toBe("IMPOSTER");
+  });
+
+  it("caught branch: a correct guess freezes an imposter win", () => {
+    const state = stateAt("FINAL_GUESS", {
+      accusedId: PLAYERS[1],
+      finalGuess: { text: "cat", submittedAt: 0 },
+    });
+    const result = toRoundRevealFromFinalGuess(state);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.roundWinner).toBe("IMPOSTER");
+  });
+
+  it("caught branch: a wrong guess freezes a group win", () => {
+    const state = stateAt("FINAL_GUESS", {
+      accusedId: PLAYERS[1],
+      finalGuess: { text: "dog", submittedAt: 0 },
+    });
+    const result = toRoundRevealFromFinalGuess(state);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.roundWinner).toBe("GROUP");
+  });
+
+  it("startRound clears the previous round's winner", () => {
+    const result = startRound(stateAt("SCORING", { roundWinner: "IMPOSTER" }), {
+      roundNumber: 2,
+      turnOrder: PLAYERS,
+      imposterId: PLAYERS[0],
+      word: "dog",
+      category: "an animal",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.roundWinner).toBeNull();
+  });
+});
+
+describe("running tally across rounds", () => {
+  it("accumulates group/imposter wins and per-imposter records", () => {
+    // Round 1: imposter caught and guessed wrong -> GROUP.
+    const round1 = endRoundReveal(
+      stateAt("ROUND_REVEAL", {
+        roundNumber: 1,
+        accusedId: PLAYERS[1],
+        roundWinner: "GROUP",
+      }),
+    );
+    expect(round1.ok).toBe(true);
+    if (!round1.ok) return;
+    expect(round1.data.scores.groupRoundsWon).toBe(1);
+    expect(round1.data.scores.imposterRoundsWon).toBe(0);
+    expect(round1.data.scores.perPlayer[PLAYERS[1]]).toEqual({
+      roundsAsImposter: 1,
+      roundsWonAsImposter: 0,
+    });
+
+    // Round 2: same imposter survives the vote -> IMPOSTER.
+    const round2 = endRoundReveal(
+      stateAt("ROUND_REVEAL", {
+        roundNumber: 2,
+        accusedId: null,
+        roundWinner: "IMPOSTER",
+        scores: round1.data.scores,
+      }),
+    );
+    expect(round2.ok).toBe(true);
+    if (!round2.ok) return;
+    expect(round2.data.scores.groupRoundsWon).toBe(1);
+    expect(round2.data.scores.imposterRoundsWon).toBe(1);
+    expect(round2.data.scores.perPlayer[PLAYERS[1]]).toEqual({
+      roundsAsImposter: 2,
+      roundsWonAsImposter: 1,
+    });
+  });
 });
 
 describe("castVote", () => {
   const CONNECTED = PLAYERS;
 
   it("records a vote during VOTING", () => {
-    const result = castVote(stateAt("VOTING"), PLAYERS[0], PLAYERS[2], CONNECTED);
+    const result = castVote(
+      stateAt("VOTING"),
+      PLAYERS[0],
+      PLAYERS[2],
+      CONNECTED,
+    );
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.data.votes).toEqual([
@@ -687,6 +815,21 @@ describe("serialiseStateFor", () => {
     expect(view.reveal).not.toBeNull();
     expect(view.reveal?.imposterId).toBe(room.state.imposterId);
     expect(view.reveal?.winner).toBe("IMPOSTER");
+  });
+
+  it("reveal.winner reflects the frozen roundWinner, identically for both views", () => {
+    room = roomWith(
+      stateAt("ROUND_REVEAL", {
+        accusedId: PLAYERS[1],
+        roundWinner: "GROUP",
+        finalGuess: { text: "dog", submittedAt: 0 },
+        votes: [{ voterId: PLAYERS[0], targetId: PLAYERS[1] }],
+      }),
+    );
+    const imposterView = serialiseStateFor(room.state.imposterId!, room);
+    const groupView = serialiseStateFor(PLAYERS[0], room);
+    expect(imposterView.reveal?.winner).toBe("GROUP");
+    expect(groupView.reveal?.winner).toBe("GROUP");
   });
 
   it("never leaves phase undefined on the returned view", () => {

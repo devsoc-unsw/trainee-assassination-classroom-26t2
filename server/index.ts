@@ -3,14 +3,10 @@ import { Server, type DefaultEventsMap, type Socket } from "socket.io";
 import { CLIENT_EVENTS, SERVER_EVENTS } from "../shared/events";
 import type {
   ClientToServerEvents,
+  Result,
   ServerToClientEvents,
 } from "../shared/events";
-import type {
-  PlayerId,
-  Room,
-  RoomCode,
-  Stroke,
-} from "../shared/types";
+import type { PlayerId, Room, RoomCode, Stroke } from "../shared/types";
 import { createPhaseLoop } from "./phase-loop";
 import {
   canStartGame,
@@ -166,9 +162,16 @@ function broadcastState(roomCode: RoomCode, room: Room) {
 }
 
 // T09: the phase loop drives timed transitions. See server/phase-loop.ts.
+// T19: startNextRound goes to the next round after SCORING
 const { enterPhase } = createPhaseLoop({
   getRoom,
   broadcast: (room) => broadcastState(room.code, room),
+  startNextRound: (room) => {
+    const res = beginRound(room);
+    if (!res.ok) {
+      console.warn(`[room ${room.code}] next round rejected: ${res.message}`);
+    }
+  },
 });
 
 function shuffled<T>(items: T[]): T[] {
@@ -178,6 +181,39 @@ function shuffled<T>(items: T[]): T[] {
     [copy[i], copy[j]] = [copy[j], copy[i]];
   }
   return copy;
+}
+
+// Shuffle turn order, pick the imposter, draw a word, and enter DRAWING.
+// Shared by the host's start_game and the phase loop's post-SCORING next round.
+// Disconnected players are left out of the rotation (T08).
+function beginRound(room: Room): Result<void> {
+  const turnOrder = shuffled(
+    room.players
+      .filter((player) => player.connected)
+      .map((player) => player.id),
+  );
+  const imposterId = pickImposter(turnOrder, room.state.imposterId);
+  const entry = drawWord(room.deck);
+
+  const started = startRound(room.state, {
+    roundNumber: room.state.roundNumber + 1,
+    turnOrder,
+    imposterId,
+    word: entry.word,
+    category: entry.category,
+  });
+  if (!started.ok) {
+    return started;
+  }
+
+  const drawing = beginDrawing(started.data);
+  if (!drawing.ok) {
+    return drawing;
+  }
+
+  // enterPhase arms the DRAWING timer and broadcasts the state.
+  enterPhase(room, drawing.data);
+  return { ok: true, data: undefined };
 }
 
 io.on("connection", (socket) => {
@@ -275,18 +311,7 @@ io.on("connection", (socket) => {
       return;
     }
 
-    // Pick imposter and turn order randomly.
-    const turnOrder = shuffled(room.players.map((player) => player.id));
-    const imposterId = pickImposter(turnOrder, room.state.imposterId);
-    const entry = drawWord(room.deck);
-
-    const started = startRound(room.state, {
-      roundNumber: room.state.roundNumber + 1,
-      turnOrder,
-      imposterId,
-      word: entry.word,
-      category: entry.category,
-    });
+    const started = beginRound(room);
     if (!started.ok) {
       console.warn(
         `[room ${roomCode}] start_game rejected: ${started.message}`,
@@ -294,18 +319,7 @@ io.on("connection", (socket) => {
       ack({ ok: false, code: started.code, message: started.message });
       return;
     }
-
-    const drawing = beginDrawing(started.data);
-    if (!drawing.ok) {
-      console.warn(
-        `[room ${roomCode}] begin_drawing rejected after start_round: ${drawing.message}`,
-      );
-      ack({ ok: false, code: drawing.code, message: drawing.message });
-      return;
-    }
     ack({ ok: true, data: undefined });
-    // enterPhase arms the DRAWING timer and broadcasts the state.
-    enterPhase(room, drawing.data);
   });
 
   socket.on(CLIENT_EVENTS.STROKE_END, (payload) => {
@@ -475,6 +489,17 @@ io.on("connection", (socket) => {
       socket.emit(SERVER_EVENTS.ERROR, {
         code: "NOT_YOUR_TURN",
         message: "Not your turn.",
+      });
+      return;
+    }
+
+    const expectedStrokesBeforeThisTurn =
+      (room.state.pass - 1) * room.state.turnOrder.length +
+      room.state.turnIndex;
+    if (room.state.strokes.length !== expectedStrokesBeforeThisTurn) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "NOT_YOUR_TURN",
+        message: "This turn already has a stroke.",
       });
       return;
     }

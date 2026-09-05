@@ -48,11 +48,13 @@ function setup(room: Room | null) {
     rooms.set(room.code, room);
   }
   const broadcast = vi.fn();
+  const startNextRound = vi.fn();
   const loop = createPhaseLoop({
     getRoom: (code) => rooms.get(code) ?? null,
     broadcast,
+    startNextRound,
   });
-  return { loop, broadcast, rooms };
+  return { loop, broadcast, startNextRound, rooms };
 }
 
 describe("phase loop", () => {
@@ -198,17 +200,37 @@ describe("phase loop", () => {
       expect(room.state.phase).toBe("ROUND_REVEAL");
     });
 
-    it("ROUND_REVEAL -> SCORING, then stops (SCORING has no timer)", () => {
-      const room = roomAt("ROUND_REVEAL", { accusedId: null });
-      const { loop } = setup(room);
+    it("non-final round: reveal timeout tallies into SCORING and spins the next round", () => {
+      const room = roomAt("ROUND_REVEAL", {
+        roundNumber: 1,
+        accusedId: null,
+      });
+      const { loop, startNextRound } = setup(room);
       loop.enterPhase(room, room.state);
 
       vi.advanceTimersByTime(PHASE_DURATIONS_MS.ROUND_REVEAL);
-      expect(room.state.phase).toBe("SCORING");
-      expect(getRoomTimer(CODE)).toBeNull();
 
-      vi.advanceTimersByTime(60_000);
       expect(room.state.phase).toBe("SCORING");
+      expect(room.state.scores.imposterRoundsWon).toBe(1);
+      expect(getRoomTimer(CODE)).toBeNull();
+      expect(startNextRound).toHaveBeenCalledTimes(1);
+      expect(startNextRound).toHaveBeenCalledWith(room);
+    });
+
+    it("final round: reveal timeout ends the game instead of spinning another round", () => {
+      const room = roomAt("ROUND_REVEAL", {
+        roundNumber: 3,
+        accusedId: null,
+      });
+      const { loop, startNextRound } = setup(room);
+      loop.enterPhase(room, room.state);
+
+      vi.advanceTimersByTime(PHASE_DURATIONS_MS.ROUND_REVEAL);
+
+      expect(room.state.phase).toBe("GAME_OVER");
+      expect(room.state.scores.imposterRoundsWon).toBe(1);
+      expect(startNextRound).not.toHaveBeenCalled();
+      expect(getRoomTimer(CODE)).toBeNull();
     });
 
     it("chains DRAWING -> VOTING -> ROUND_REVEAL -> SCORING across successive timeouts", () => {
