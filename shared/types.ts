@@ -22,6 +22,7 @@ export interface Player {
   colour: string;
   connected: boolean;
   ready: boolean;
+  isSpectator: boolean;
 }
 
 export interface Point {

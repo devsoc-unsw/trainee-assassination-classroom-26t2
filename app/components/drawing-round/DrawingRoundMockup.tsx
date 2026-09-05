@@ -53,11 +53,12 @@ export default function DrawingRoundMockup() {
       myPlayerId={ME.id}
       // Longest word in server/words.ts — the case that broke the note's
       // sizing before it was rewritten to measure the real element.
-      hint={
+      secret={
         PREVIEW_AS_IMPOSTER
-          ? { kind: "category", text: "a piece of technology" }
-          : { kind: "word", text: "constellation" }
+          ? { isImposter: true, category: "a piece of technology" }
+          : { category: "a piece of technology", word: "constellation" }
       }
+      roundNumber={1}
       // No turn to spend here, so the pencil just tracks the cursor indefinitely.
       canDraw
       phaseEndsAt={endsAt}

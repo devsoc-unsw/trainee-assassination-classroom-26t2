@@ -8,6 +8,7 @@ import { useSocket } from "./socket-provider";
 import { VotingScreen } from "./components/game/VotingScreen";
 import { ImposterGuess } from "./components/game/ImposterGuess";
 import { HomeButton } from "./components/game/HomeButton";
+import { SecretDisplay } from "./components/lobby/SecretDisplay";
 import { RoundReveal } from "./components/game/RoundReveal";
 import { DrawingRoundScreen } from "./components/drawing-round/DrawingRoundScreen";
 
@@ -23,19 +24,7 @@ export function Game({ room, gameState }: GameProps) {
     (x) => x.id == gameState.turnOrder[gameState.turnIndex],
   )?.nickname;
 
-  if (gameState.phase == "ROUND_STARTING") {
-    if ("isImposter" in gameState.secret) {
-      return (
-        <h1>
-          You are the chameleon. The category is: {gameState.secret.category}
-        </h1>
-      );
-    } else {
-      return (
-        <h1>You are not the chameleon. The word is: {gameState.secret.word}</h1>
-      );
-    }
-  }
+  let content;
 
   // DRAWING gets its own screen (the hand-drawn frame, roster, and hint note)
   // rather than the plain h1 the other in-round phases still use — everything
@@ -53,30 +42,32 @@ export function Game({ room, gameState }: GameProps) {
 
   if (gameState.phase === "VOTING" || gameState.phase === "FINAL_GUESS") {
     return (
-      <main className="flex w-full max-w-6xl flex-1 flex-col items-center py-12 px-6 sm:py-16 sm:px-8 md:py-16 md:px-12">
-        <h1>{`${gameState.phase}: ${playerUp}'s turn!`}</h1>
-        {/* Read-only here: this branch is only ever VOTING or FINAL_GUESS now
-            that DRAWING has its own screen above, and Canvas only accepts
-            input on someone's turn during DRAWING. */}
-        <Canvas
-          strokes={gameState.strokes}
-          room={room}
-          playerId={playerId}
-          socket={socket}
-          myTurn={false}
-        />
-
-        {gameState.phase === "VOTING" && (
-          <VotingScreen players={room.players} socket={socket} />
+      <>
+        {gameState.phase === "FINAL_GUESS" && (
+          <SecretDisplay secret={gameState.secret} />
         )}
-        {gameState.phase === "FINAL_GUESS" && <ImposterGuess socket={socket} />}
-        <HomeButton socket={socket} />
-      </main>
-    );
-  }
+        <main className="flex w-full max-w-6xl flex-1 flex-col items-center py-12 px-6 sm:py-16 sm:px-8 md:py-16 md:px-12">
+          <h1>{`${gameState.phase}: ${playerUp}'s turn!`}</h1>
+          <Canvas
+            strokes={gameState.strokes}
+            room={room}
+            playerId={playerId}
+            socket={socket}
+            myTurn={false}
+          />
 
-  if (gameState.phase == "ROUND_REVEAL") {
-    return (
+          {gameState.phase === "VOTING" && (
+            <VotingScreen players={room.players} socket={socket} />
+          )}
+          {gameState.phase === "FINAL_GUESS" && (
+            <ImposterGuess socket={socket} />
+          )}
+          <HomeButton socket={socket} />
+        </main>
+      </>
+    );
+  } else if (gameState.phase == "ROUND_REVEAL") {
+    content = (
       <>
         <RoundReveal
           key={gameState.roundNumber}
@@ -88,22 +79,26 @@ export function Game({ room, gameState }: GameProps) {
         <HomeButton socket={socket} />
       </>
     );
-  }
-
-  if (gameState.phase == "SCORING") {
-    return (
-      <>
-        <h1>Scores!</h1>
-      </>
-    );
-  }
-
-  if (gameState.phase == "GAME_OVER") {
-    return (
+  } else if (gameState.phase == "SCORING") {
+    content = <h1>Scores!</h1>;
+  } else if (gameState.phase == "GAME_OVER") {
+    content = (
       <>
         <h1>Game Over!</h1>
         <HomeButton socket={socket} />
       </>
     );
   }
+
+  const showSecret =
+    gameState.phase !== "ROUND_REVEAL" &&
+    gameState.phase !== "SCORING" &&
+    gameState.phase !== "GAME_OVER";
+
+  return (
+    <>
+      {showSecret && <SecretDisplay secret={gameState.secret} />}
+      {content}
+    </>
+  );
 }

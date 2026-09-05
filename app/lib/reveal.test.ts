@@ -8,6 +8,7 @@ const PLAYERS: Player[] = ["alice", "bob", "carol", "dave"].map((id) => ({
   colour: "#000",
   connected: true,
   ready: true,
+  isSpectator: false,
 }));
 
 describe("tallyVotesForDisplay", () => {

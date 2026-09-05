@@ -2,15 +2,21 @@
 
 import {
   useEffect,
-  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
   type ReactNode,
 } from "react";
 import { AvatarBlob } from "@/app/components/lobby/AvatarBlob";
+import {
+  SECRET_DISPLAY_IMPOSTER_HEIGHT,
+  SECRET_DISPLAY_WORD_CARD_LEFT_OFFSET,
+  SECRET_DISPLAY_WORD_HEIGHT,
+  SecretDisplay,
+} from "@/app/components/lobby/SecretDisplay";
 import { useCountdown } from "@/app/lib/clock";
-import type { PlayerId } from "@/shared/types";
+import { useFitFontSize } from "@/app/lib/useFitFontSize";
+import type { PlayerId, PlayerSecret } from "@/shared/types";
 
 // Geometry of drawing-base-layout (2).png, in % of the layout box — sampled
 // from the art's own pixels since the hand-drawn frame isn't evenly spaced.
@@ -56,58 +62,10 @@ const INK = "#3f3730";
 
 // Note text size: shrinks by measuring the real element's scrollWidth/Height
 // rather than guessing a character width, which clipped on long words like
-// "corkscrew" that never wrap.
+// "corkscrew" that never wrap. See useFitFontSize.
 const NOTE_MAX_CQW = 1.2;
 const NOTE_MIN_CQW = 0.35;
 const NOTE_STEP_CQW = 0.05;
-
-// Refits only when the hint text changes, not every countdown tick. Takes the
-// ref rather than returning one to satisfy eslint-plugin-react-hooks' rule
-// against threading a ref out through a hook's return value.
-function useFitNoteSize(
-  ref: React.RefObject<HTMLSpanElement | null>,
-  text: string,
-): number {
-  const [fontSize, setFontSize] = useState(NOTE_MAX_CQW);
-
-  useLayoutEffect(() => {
-    const maybeEl = ref.current;
-    if (!maybeEl) {
-      return;
-    }
-    // Rebind so TS carries the non-null narrowing into the nested function.
-    const el = maybeEl;
-
-    function fit() {
-      // Container can briefly measure zero (mid dev-server recompile, or
-      // before first paint) — skip and let the observer below retry.
-      if (el.clientWidth === 0 || el.clientHeight === 0) {
-        return;
-      }
-      let size = NOTE_MAX_CQW;
-      el.style.fontSize = `${size}cqw`;
-      while (
-        size > NOTE_MIN_CQW &&
-        (el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight)
-      ) {
-        size = Math.max(NOTE_MIN_CQW, size - NOTE_STEP_CQW);
-        el.style.fontSize = `${size}cqw`;
-      }
-      setFontSize(size);
-    }
-
-    fit();
-    // Also catches later resizes; font changes inside fit() don't feed back
-    // in, since the box's size comes from its ancestor, not its content.
-    const observer = new ResizeObserver(fit);
-    observer.observe(el);
-    return () => observer.disconnect();
-    // ref's identity never changes, so only `text` needs to be a dependency.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text]);
-
-  return fontSize;
-}
 
 export interface RosterPlayer {
   id: PlayerId;
@@ -115,18 +73,13 @@ export interface RosterPlayer {
   colour: string;
 }
 
-// What this player is allowed to know: the word for the group, only the
-// category for the imposter. Mirrors the PlayerSecret union in shared/types.ts.
-export type Hint =
-  | { kind: "word"; text: string }
-  | { kind: "category"; text: string };
-
 interface DrawingRoundProps {
   // In turn order, so the roster reads top to bottom as the rotation.
   players: RosterPlayer[];
   currentDrawerId: PlayerId | null;
   myPlayerId: PlayerId;
-  hint: Hint;
+  secret: PlayerSecret;
+  roundNumber: number;
   // Display cue only — the real turn lock lives in Canvas's own myTurn prop
   // and, behind that, the server.
   canDraw: boolean;
@@ -138,12 +91,14 @@ interface DrawingRoundProps {
 }
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
+const SECRET_CARD_GAP = 8;
 
 export default function DrawingRound({
   players,
   currentDrawerId,
   myPlayerId,
-  hint,
+  secret,
+  roundNumber,
   canDraw,
   phaseEndsAt,
   pass,
@@ -217,8 +172,55 @@ export default function DrawingRound({
   const currentDrawer =
     players.find((player) => player.id === currentDrawerId) ?? null;
 
+  const isImposter = "isImposter" in secret;
+  const noteText = `ROUND ${roundNumber}`;
   const noteRef = useRef<HTMLSpanElement>(null);
-  const noteFontSize = useFitNoteSize(noteRef, hint.text);
+  const noteFontSize = useFitFontSize(noteRef, noteText, {
+    min: NOTE_MIN_CQW,
+    max: NOTE_MAX_CQW,
+    step: NOTE_STEP_CQW,
+    unit: "cqw",
+  });
+
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [secretCardPos, setSecretCardPos] = useState<{
+    left: number;
+    top: number;
+  } | null>(null);
+
+  useEffect(() => {
+    const maybeFrame = frameRef.current;
+    if (!maybeFrame) {
+      return;
+    }
+    const frame = maybeFrame;
+
+    function recompute() {
+      const rect = frame.getBoundingClientRect();
+      const rosterCentre =
+        rect.left + ((ROSTER.left + ROSTER.width / 2) / 100) * rect.width;
+      const left = isImposter
+        ? rosterCentre
+        : rosterCentre - SECRET_DISPLAY_WORD_CARD_LEFT_OFFSET;
+      const height = isImposter
+        ? SECRET_DISPLAY_IMPOSTER_HEIGHT
+        : SECRET_DISPLAY_WORD_HEIGHT;
+      const top = Math.max(
+        SECRET_CARD_GAP,
+        rect.top - height - SECRET_CARD_GAP,
+      );
+      setSecretCardPos({ left, top });
+    }
+
+    recompute();
+    const observer = new ResizeObserver(recompute);
+    observer.observe(frame);
+    window.addEventListener("resize", recompute);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", recompute);
+    };
+  }, [isImposter]);
 
   const rowHeight = ROSTER.height / Math.max(1, players.length);
   // Big enough to read, but never wider than the panel nor taller than its row.
@@ -253,6 +255,7 @@ export default function DrawingRound({
           computed since every child is absolutely positioned. Also the
           container-query context for the cqw sizes below. */}
       <div
+        ref={frameRef}
         className="frame-drawing-layout relative aspect-video w-[min(calc(100vw-2rem),1920px,calc((100vh-2rem)*16/9))] @container"
         style={{ "--avatar-size": `${avatarSize}cqw` } as CSSProperties}
       >
@@ -328,8 +331,6 @@ export default function DrawingRound({
           </span>
         </div>
 
-        {/* The word for the group, the category for the imposter — this note
-            is the imposter's hint panel too, and it never scrolls. */}
         <div
           className="art-note absolute"
           style={{
@@ -340,9 +341,7 @@ export default function DrawingRound({
         >
           <span
             ref={noteRef}
-            className={`absolute flex items-center justify-center overflow-hidden text-center leading-tight font-bold tracking-wide ${
-              hint.kind === "category" ? "italic" : ""
-            }`}
+            className="absolute flex items-center justify-center overflow-hidden text-center leading-tight font-bold tracking-wide"
             style={{
               left: `${NOTE_BODY.left}%`,
               top: `${NOTE_BODY.top}%`,
@@ -352,18 +351,22 @@ export default function DrawingRound({
               fontSize: `${noteFontSize}cqw`,
             }}
           >
-            {hint.kind === "word" ? hint.text.toUpperCase() : hint.text}
+            {noteText}
           </span>
-          {/* Wider than the note itself so this doesn't wrap to three lines. */}
-          {hint.kind === "category" && (
-            <span
-              className="absolute left-1/2 top-full w-[220%] -translate-x-1/2 text-center font-bold tracking-wide"
-              style={{ color: INK, fontSize: "0.8cqw" }}
-            >
-              you&rsquo;re the imposter — one guess at the end
-            </span>
-          )}
         </div>
+
+        {secretCardPos && (
+          <div
+            className="fixed z-20"
+            style={{
+              left: `${secretCardPos.left}px`,
+              top: `${secretCardPos.top}px`,
+              transform: "translateX(-50%)",
+            }}
+          >
+            <SecretDisplay secret={secret} />
+          </div>
+        )}
 
         {/* Teammates' <Canvas>, scaled to fill this slot, pencil on top. */}
         <div
