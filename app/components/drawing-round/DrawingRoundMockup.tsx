@@ -1,6 +1,11 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import {
+  isSoundMuted,
+  setSoundMuted,
+  subscribe as subscribeSoundMuted,
+} from "@/app/lib/soundPrefs";
 import DrawingRound from "./DrawingRound";
 
 // Offline preview of the drawing round, mounted at /drawing. Feeds fixtures
@@ -41,6 +46,11 @@ const PREVIEW_DEADLINE = Date.now() + TURN_MS;
 
 export default function DrawingRoundMockup() {
   const mounted = useSyncExternalStore(neverChanges, onClient, onServer);
+  const muted = useSyncExternalStore(
+    subscribeSoundMuted,
+    isSoundMuted,
+    () => false,
+  );
 
   // Null until hydration, so server and first client render agree there's no
   // timer yet. Reload to restart the countdown.
@@ -63,6 +73,8 @@ export default function DrawingRoundMockup() {
       canDraw
       phaseEndsAt={endsAt}
       pass={1}
+      muted={muted}
+      onToggleMuted={() => setSoundMuted(!muted)}
       // Blank: the frame art's cream shows through; drawing itself is Canvas's job.
       board={<div className="h-full w-full" />}
     />
