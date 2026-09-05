@@ -16,7 +16,9 @@ import {
 } from "@/app/components/lobby/SecretDisplay";
 import { useCountdown } from "@/app/lib/clock";
 import { useFitFontSize } from "@/app/lib/useFitFontSize";
-import type { PlayerId, PlayerSecret } from "@/shared/types";
+import type { PlayerId, PlayerSecret, PublicGameState, PublicRoom } from "@/shared/types";
+import { HomeButton } from "../HomeButton";
+import { AppSocket } from "@/app/socket-provider";
 
 // Geometry of drawing-base-layout (2).png, in % of the layout box — sampled
 // from the art's own pixels since the hand-drawn frame isn't evenly spaced.
@@ -103,6 +105,9 @@ interface DrawingRoundProps {
   // Real play passes teammates' <Canvas>; the offline preview passes a blank
   // placeholder. Either way this component only sizes and frames it.
   board: ReactNode;
+  socket: AppSocket;
+  setRoomState: (room: PublicRoom | null) => void;
+  setGameState: (room: PublicGameState | null) => void;
 }
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
@@ -119,7 +124,7 @@ export default function DrawingRound({
   pass,
   muted,
   onToggleMuted,
-  board,
+  board,socket,setRoomState,setGameState
 }: DrawingRoundProps) {
   const boardOuterRef = useRef<HTMLDivElement>(null);
 
@@ -454,6 +459,11 @@ export default function DrawingRound({
               }}
             />
           )}
+        </div>
+
+          <div className="absolute left-[-33%] top-[87%] w-full text-center font-bold tracking-wide">
+        <HomeButton 
+        setGameState={setGameState} setRoomState={setRoomState} socket={socket} />
         </div>
 
         {/* Whose turn it is. Sits under the board in the frame's bottom margin. */}

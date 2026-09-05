@@ -106,11 +106,11 @@ export function DrawingRoundScreen({
             strokes={gameState.strokes}
           />
         }
+        socket={socket}
+        setRoomState={setRoomState}
+        setGameState={setGameState}
       />
       {/* Keep the room reachable mid-round, same as the other in-round phases. */}
-      <div className="fixed left-4 top-4 z-10">
-        <HomeButton setGameState={setGameState} setRoomState={setRoomState} socket={socket} />
-      </div>
     </div>
   );
 }

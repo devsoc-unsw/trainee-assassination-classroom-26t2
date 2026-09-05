@@ -253,7 +253,6 @@ export function castVote(
   targetId: PlayerId,
   connectedPlayerIds: PlayerId[],
 ): Result<GameState> {
-  //TODO: Make sure front end receives error messages
   const guard = assertPhase(state, ["VOTING"], "cast_vote");
   if (!guard.ok) {
     return guard;
