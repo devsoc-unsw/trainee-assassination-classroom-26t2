@@ -20,7 +20,7 @@ export function ImposterGuess({ socket }: ImposterGuessProps) {
     <>
       <h1>GUESSY TIME TIME</h1>
       <textarea ref={textRef}></textarea>
-      <button onClick={(event) => onClick(textRef.current, socket)}>Submit!</button>
+      <button onClick={() => onClick(textRef.current, socket)}>Submit!</button>
     </>
   );
 }

@@ -493,10 +493,7 @@ io.on("connection", (socket) => {
       return;
     }
 
-    const expectedStrokesBeforeThisTurn =
-      (room.state.pass - 1) * room.state.turnOrder.length +
-      room.state.turnIndex;
-    if (room.state.strokes.length !== expectedStrokesBeforeThisTurn) {
+    if (room.state.strokeSubmittedThisTurn) {
       socket.emit(SERVER_EVENTS.ERROR, {
         code: "NOT_YOUR_TURN",
         message: "This turn already has a stroke.",
@@ -510,7 +507,8 @@ io.on("connection", (socket) => {
       colour: colour,
       points: [payload.point],
     };
-    room?.state.strokes.push(stroke);
+    room.state.strokes.push(stroke);
+    room.state.strokeSubmittedThisTurn = true;
     broadcastState(roomCode, room);
   });
 

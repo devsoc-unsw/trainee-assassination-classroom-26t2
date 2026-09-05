@@ -89,6 +89,7 @@ export function startRound(
       pass: 1,
       turnIndex: 0,
       turnOrder: params.turnOrder,
+      strokeSubmittedThisTurn: false,
       word: params.word,
       category: params.category,
       imposterId: params.imposterId,
@@ -156,11 +157,22 @@ export function advanceTurn(state: GameState): Result<GameState> {
 
   const nextIndex = state.turnIndex + 1;
   if (nextIndex < state.turnOrder.length) {
-    return { ok: true, data: { ...state, turnIndex: nextIndex } };
+    return {
+      ok: true,
+      data: { ...state, turnIndex: nextIndex, strokeSubmittedThisTurn: false },
+    };
   }
 
   if (state.pass === 1 && state.turnOrder.length > 0) {
-    return { ok: true, data: { ...state, turnIndex: 0, pass: 2 } };
+    return {
+      ok: true,
+      data: {
+        ...state,
+        turnIndex: 0,
+        pass: 2,
+        strokeSubmittedThisTurn: false,
+      },
+    };
   }
 
   return endDrawing(state);

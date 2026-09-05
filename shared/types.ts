@@ -67,6 +67,7 @@ export interface GameState {
   pass: 1 | 2;
   turnIndex: number;
   turnOrder: PlayerId[];
+  strokeSubmittedThisTurn: boolean;
   word: string;
   category: string;
   imposterId: PlayerId | null;
