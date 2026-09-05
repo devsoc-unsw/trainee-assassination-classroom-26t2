@@ -4,8 +4,9 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 import drawmeleonLogo from "@/public/images/landing-page/drawmeleon-logo.png";
 import { CLIENT_EVENTS, SERVER_EVENTS } from "@/shared/events";
-import type { PublicRoom } from "@/shared/types";
+import type { PublicGameState, PublicRoom } from "@/shared/types";
 import { LobbyRoom } from "./components/lobby/LobbyRoom";
+import { SecretDisplay } from "./components/lobby/SecretDisplay";
 import {
   clearStoredSession,
   getPlayerId,
@@ -26,6 +27,7 @@ export function Lobby() {
 
   const [nickname, setNickname] = useState("");
   const [roomCode, setRoomCode] = useState("");
+  const [gameState, setGameState] = useState<PublicGameState | null>(null);
   const [room, setRoom] = useState<PublicRoom | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,6 +58,15 @@ export function Lobby() {
     socket.on(SERVER_EVENTS.ROOM_UPDATED, handleRoomUpdated);
     return () => {
       socket.off(SERVER_EVENTS.ROOM_UPDATED, handleRoomUpdated);
+    };
+  }, [socket]);
+
+  useEffect(() => {
+    const handleStateUpdated = (publicState: PublicGameState) =>
+      setGameState(publicState);
+    socket.on(SERVER_EVENTS.STATE_UPDATED, handleStateUpdated);
+    return () => {
+      socket.off(SERVER_EVENTS.STATE_UPDATED, handleStateUpdated);
     };
   }, [socket]);
 
@@ -102,6 +113,14 @@ export function Lobby() {
       </main>
     );
   }
+
+ if (gameState && gameState.phase !== "LOBBY") {
+  return (
+    <main className="flex w-full flex-1 items-start justify-start p-4">
+      <SecretDisplay secret={gameState.secret} />
+    </main>
+  );
+}
 
   if (room) {
     return (
