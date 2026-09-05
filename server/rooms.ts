@@ -56,6 +56,7 @@ export function createInitialGameState(): GameState {
     pass: 1,
     turnIndex: 0,
     turnOrder: [],
+    strokeSubmittedThisTurn: false,
     word: "",
     category: "",
     imposterId: null,

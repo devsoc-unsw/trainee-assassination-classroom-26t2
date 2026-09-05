@@ -259,6 +259,20 @@ describe("advanceTurn", () => {
     }
   });
 
+  it("clears strokeSubmittedThisTurn for the next player, whether or not the outgoing turn drew", () => {
+    for (const outgoing of [true, false]) {
+      const result = advanceTurn(
+        stateAt("DRAWING", {
+          turnIndex: 0,
+          pass: 1,
+          strokeSubmittedThisTurn: outgoing,
+        }),
+      );
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.data.strokeSubmittedThisTurn).toBe(false);
+    }
+  });
+
   it("wraps off the end of pass 1 into pass 2", () => {
     const result = advanceTurn(
       stateAt("DRAWING", { turnIndex: PLAYERS.length - 1, pass: 1 }),
@@ -268,6 +282,7 @@ describe("advanceTurn", () => {
       expect(result.data.phase).toBe("DRAWING");
       expect(result.data.turnIndex).toBe(0);
       expect(result.data.pass).toBe(2);
+      expect(result.data.strokeSubmittedThisTurn).toBe(false);
     }
   });
 
