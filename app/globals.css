@@ -252,6 +252,26 @@ body {
   background-image: url("/images/drawing-round/countdown-red%20(1).png");
 }
 
+/* ink 704x708 at (418,732) of 1640x2360, drawn upside down in both files. A
+   180deg turn only flips the content, unlike the clock's 90deg turn, so it
+   does not swap the box's own width and height and needs no separate layer
+   to carry the art's own aspect ratio — this can rotate in place. */
+.art-music-toggle {
+  aspect-ratio: 704 / 708;
+  background-repeat: no-repeat;
+  background-size: 232.955% 333.390%;
+  background-position: 44.658% 44.310%;
+  transform: rotate(180deg);
+}
+
+.art-music-toggle-on {
+  background-image: url("/images/drawing-round/music-on.png");
+}
+
+.art-music-toggle-off {
+  background-image: url("/images/drawing-round/music-off.png");
+}
+
 /* ink 447x225 at (701,344) of 1920x1080 */
 .art-note {
   aspect-ratio: 447 / 225;
