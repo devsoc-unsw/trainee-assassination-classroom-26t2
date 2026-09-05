@@ -1,5 +1,7 @@
-export const MIN_PLAYERS = 2;//TODO: Actually remember to put this back this time.
+export const MIN_PLAYERS = 4;
 export const MAX_PLAYERS = 8;
+
+export const ROUNDS_PER_GAME = 3;
 
 export type PlayerId = string;
 export type RoomCode = string;
@@ -23,9 +25,9 @@ export interface Player {
 }
 
 export interface Point {
-  // 0..CANVAS_WIDTH
+  // Normalised 0..1, fraction of the canvas element's rendered width.
   x: number;
-  // 0..CANVAS_HEIGHT
+  // Normalised 0..1, fraction of the canvas element's rendered height.
   y: number;
 }
 
@@ -57,6 +59,8 @@ export interface Scores {
   perPlayer: Record<PlayerId, PlayerRecord>;
 }
 
+export type RoundWinner = "GROUP" | "IMPOSTER";
+
 export interface GameState {
   phase: Phase;
   roundNumber: number;
@@ -70,6 +74,7 @@ export interface GameState {
   votes: Vote[];
   accusedId: PlayerId | null;
   finalGuess: ImposterGuess | null;
+  roundWinner: RoundWinner | null;
   scores: Scores;
   phaseEndsAt: number | null;
 }
@@ -83,7 +88,7 @@ export interface RoundReveal {
   word: string;
   votes: Vote[];
   finalGuess: ImposterGuess | null;
-  winner: "GROUP" | "IMPOSTER";
+  winner: RoundWinner;
 }
 
 export interface PublicGameState {
