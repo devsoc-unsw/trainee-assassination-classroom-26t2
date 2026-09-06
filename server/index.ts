@@ -6,7 +6,7 @@ import type {
   Result,
   ServerToClientEvents,
 } from "../shared/events";
-import type { PlayerId, PublicRoom, Room, RoomCode, Stroke } from "../shared/types";
+import type { PlayerId, Room, RoomCode, Stroke } from "../shared/types";
 import { createPhaseLoop } from "./phase-loop";
 import {
   canRestartGame,
