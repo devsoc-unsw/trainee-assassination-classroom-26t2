@@ -6,7 +6,7 @@ import type {
   Result,
   ServerToClientEvents,
 } from "../shared/events";
-import type { PlayerId, Room, RoomCode, Stroke } from "../shared/types";
+import type { PlayerId, PublicRoom, Room, RoomCode, Stroke } from "../shared/types";
 import { createPhaseLoop } from "./phase-loop";
 import {
   canRestartGame,
@@ -48,6 +48,7 @@ import {
 } from "./validate";
 import { drawWord } from "./word-selection";
 import { randomUUID } from "crypto";
+import { AppSocket } from "@/app/socket-provider";
 
 interface SocketData {
   playerId?: PlayerId;
@@ -254,6 +255,20 @@ function pointInBounds(point: { x: number; y: number }): boolean {
   );
 }
 
+function endTurn(room: Room, socket: Socket) {
+  // Finishing a stroke ends the turn early.
+    const advanced = advanceTurn(room.state);
+    if (!advanced.ok) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: advanced.code,
+        message: advanced.message,
+      });
+      return;
+    }
+    // enterPhase arms the next turn's timer and broadcasts.
+    enterPhase(room, advanced.data);
+}
+
 io.on("connection", (socket) => {
   console.log(`client connected: ${socket.id}`);
 
@@ -423,23 +438,14 @@ io.on("connection", (socket) => {
           code: "INVALID_PAYLOAD",
           message: "Stroke point is outside the canvas.",
         });
+        endTurn(room, socket);
         return;
       }
     }
 
     stroke.points = stroke.points.concat(payload.points);
 
-    // Finishing a stroke ends the turn early.
-    const advanced = advanceTurn(room.state);
-    if (!advanced.ok) {
-      socket.emit(SERVER_EVENTS.ERROR, {
-        code: advanced.code,
-        message: advanced.message,
-      });
-      return;
-    }
-    // enterPhase arms the next turn's timer and broadcasts.
-    enterPhase(room, advanced.data);
+    endTurn(room, socket);
   });
 
   socket.on(CLIENT_EVENTS.CAST_VOTE, (payload) => {
@@ -676,6 +682,7 @@ io.on("connection", (socket) => {
           code: "INVALID_PAYLOAD",
           message: "Stroke point is outside the canvas.",
         });
+        endTurn(room, socket);
         return;
       }
     }
