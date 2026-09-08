@@ -58,7 +58,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## Team
 
-- Project lead / senior reviewer: Jen
+- Project lead / senior reviewer: Jeniffer Leong
 - Co-lead: Siya Yuan
 - Trainee developers: Alex Varughese, Henrikus Maja Ericsson Sipahutar
 
