@@ -27,7 +27,7 @@ const HAND = { left: 1.5, width: 13 };
 const URGENT_MS = 5_000;
 const INTRO_MS = 3_000;
 const INTRO_FADE_MS = 300;
-const INTRO_MIN_REMAINING_MS = 40_000;
+const INTRO_MIN_REMAINING_MS = 70_000;
 
 interface VotingRoundProps {
   players: RosterPlayer[];
