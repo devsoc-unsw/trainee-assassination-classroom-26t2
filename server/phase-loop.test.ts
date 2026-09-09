@@ -5,10 +5,6 @@ import { createInitialGameState } from "./rooms";
 import { PHASE_DURATIONS_MS, clearRoomTimer, getRoomTimer } from "./timers";
 import { createWordDeck } from "./word-selection";
 
-// DRAWING no longer arms its clock the instant a turn starts: the your-turn
-// delay holds phaseEndsAt at null first. Any test driving a DRAWING turn to
-// its natural timeout has to cross this gap before the real 20s countdown
-// even begins.
 const DRAWING_TURN_CYCLE_MS = YOUR_TURN_DELAY_MS + PHASE_DURATIONS_MS.DRAWING;
 
 const PLAYERS = ["alice", "bob", "carol", "dave"];
@@ -400,8 +396,8 @@ describe("phase loop", () => {
     vi.advanceTimersByTime(15_000);
     expect(room.state.phase).toBe("VOTING");
 
-    // Only the VOTING deadline (t = 5s + 45s = 50s) moves it on.
-    vi.advanceTimersByTime(30_001);
+    // Only the VOTING deadline (t = 5s + 75s = 80s) moves it on.
+    vi.advanceTimersByTime(PHASE_DURATIONS_MS.VOTING - 15_000 + 1);
     expect(room.state.phase).toBe("ROUND_REVEAL");
   });
 });

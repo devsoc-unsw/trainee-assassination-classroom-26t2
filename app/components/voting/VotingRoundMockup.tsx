@@ -26,8 +26,8 @@ const ME = PLAYERS[1];
 // Two others have already voted — dimmed only, never a hint of their target.
 const VOTED_PLAYER_IDS = ["p3", "p5"];
 
-// VOTING is 45s (server/timers.ts PHASE_DURATIONS_MS.VOTING).
-const PHASE_MS = 45_000;
+// VOTING is 75s (server/timers.ts PHASE_DURATIONS_MS.VOTING).
+const PHASE_MS = 75_000;
 
 const neverChanges = () => () => {};
 const onClient = () => true;

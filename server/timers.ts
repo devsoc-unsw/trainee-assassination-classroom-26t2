@@ -6,7 +6,7 @@ import type { Phase, RoomCode } from "@/shared/types";
 // rather than the whole phase.
 export const PHASE_DURATIONS_MS = {
   DRAWING: 20_000,
-  VOTING: 45_000,
+  VOTING: 75_000,
   FINAL_GUESS: 20_000,
   ROUND_REVEAL: 30_000,
 } as const satisfies Partial<Record<Phase, number>>;
