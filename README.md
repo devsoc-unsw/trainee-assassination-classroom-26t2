@@ -60,7 +60,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 - Project lead / senior reviewer: Jeniffer Leong
 - Co-lead: Siya Yuan
-- Trainee developers: Alex Varughese, Henrikus Maja Ericsson Sipahutar
+- Trainee developers: Alex Varughese, Henrikus Maja Ericsson Sipahutar, Vivien Tang
 
 ## Learn more
 
